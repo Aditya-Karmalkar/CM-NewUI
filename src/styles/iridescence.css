@@ -1,0 +1,181 @@
+/* Enhanced Iridescence Animations and Effects */
+@keyframes iridescent-flow {
+  0% {
+    filter: hue-rotate(0deg) saturate(100%) brightness(100%);
+  }
+  50% {
+    filter: hue-rotate(180deg) saturate(150%) brightness(120%);
+  }
+  100% {
+    filter: hue-rotate(360deg) saturate(100%) brightness(100%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 100% 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-20px) rotate(120deg);
+  }
+  66% {
+    transform: translateY(10px) rotate(240deg);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 104, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.4), 0 0 60px rgba(0, 104, 255, 0.5);
+  }
+}
+
+@keyframes border-flow {
+  0% {
+    border-image-source: linear-gradient(45deg, #0068ff, #3b82f6, #60a5fa, #0068ff);
+  }
+  25% {
+    border-image-source: linear-gradient(45deg, #3b82f6, #60a5fa, #0068ff, #3b82f6);
+  }
+  50% {
+    border-image-source: linear-gradient(45deg, #60a5fa, #0068ff, #3b82f6, #60a5fa);
+  }
+  75% {
+    border-image-source: linear-gradient(45deg, #0068ff, #3b82f6, #60a5fa, #0068ff);
+  }
+  100% {
+    border-image-source: linear-gradient(45deg, #3b82f6, #60a5fa, #0068ff, #3b82f6);
+  }
+}
+
+.iridescent-bg {
+  background: linear-gradient(
+    135deg,
+    hsla(calc(var(--hue) * 1), 70%, 60%, 0.8),
+    hsla(calc(var(--hue) * 1 + 60), 80%, 65%, 0.8),
+    hsla(calc(var(--hue) * 1 + 120), 70%, 60%, 0.8),
+    hsla(calc(var(--hue) * 1 + 180), 80%, 65%, 0.8),
+    hsla(calc(var(--hue) * 1 + 240), 70%, 60%, 0.8),
+    hsla(calc(var(--hue) * 1 + 300), 80%, 65%, 0.8)
+  );
+  animation: iridescent-flow 8s ease-in-out infinite;
+}
+
+.iridescent-text {
+  background: linear-gradient(
+    135deg,
+    hsla(calc(var(--hue) * 1), 80%, 70%, 1),
+    hsla(calc(var(--hue) * 1 + 45), 85%, 75%, 1),
+    hsla(calc(var(--hue) * 1 + 90), 80%, 70%, 1),
+    hsla(calc(var(--hue) * 1 + 135), 85%, 75%, 1),
+    hsla(calc(var(--hue) * 1 + 180), 80%, 70%, 1)
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: iridescent-flow 6s ease-in-out infinite;
+}
+
+.iridescent-border {
+  border: 2px solid;
+  border-image: linear-gradient(
+    45deg,
+    hsla(calc(var(--hue) * 1), 70%, 60%, 1),
+    hsla(calc(var(--hue) * 1 + 60), 80%, 65%, 1),
+    hsla(calc(var(--hue) * 1 + 120), 70%, 60%, 1),
+    hsla(calc(var(--hue) * 1 + 180), 80%, 65%, 1)
+  ) 1;
+  animation: border-flow 4s ease-in-out infinite;
+}
+
+.shimmer-effect {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.floating-element {
+  animation: float 6s ease-in-out infinite;
+}
+
+.glow-effect {
+  animation: glow 3s ease-in-out infinite;
+}
+
+/* Particle effects */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: float 8s ease-in-out infinite;
+}
+
+/* Enhanced backdrop blur with iridescence */
+.iridescent-backdrop {
+  backdrop-filter: blur(20px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Interactive hover effects */
+.iridescent-hover {
+  transition: all 0.3s ease;
+}
+
+.iridescent-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(0, 104, 255, 0.2);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .iridescent-text {
+    font-size: 2.5rem;
+  }
+  
+  .floating-element {
+    animation-duration: 4s;
+  }
+}
+
+/* Custom scrollbar with iridescence */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    hsla(calc(var(--hue) * 1), 70%, 60%, 1),
+    hsla(calc(var(--hue) * 1 + 60), 80%, 65%, 1)
+  );
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    hsla(calc(var(--hue) * 1 + 30), 75%, 65%, 1),
+    hsla(calc(var(--hue) * 1 + 90), 85%, 70%, 1)
+  );
+}

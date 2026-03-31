@@ -1,0 +1,35 @@
+.scroll-reveal {
+  position: relative;
+  overflow: hidden;
+}
+
+.scroll-reveal-text {
+  display: inline-block;
+  position: relative;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.scroll-reveal-text .word {
+  display: inline-block;
+  position: relative;
+  white-space: pre;
+  will-change: opacity, filter, transform;
+}
+
+.scroll-reveal-text .word:not(:empty) {
+  margin-right: 0.3em;
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Ensure proper spacing for scroll reveal */
+.scroll-reveal-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
