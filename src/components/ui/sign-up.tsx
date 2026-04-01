@@ -56,7 +56,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
     fullName: '',
     email: '',
     password: '',
-    phone: '',
+    phone: '+91 ',
     userType: 'Patient'
   });
 
@@ -100,7 +100,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             <FormInput 
               label="Email"
               name="email"
-              placeholder="name@company.com"
+              placeholder="example@gmail.com"
               type="email"
               value={form.email}
               onChange={handleChange}
@@ -128,7 +128,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
             <FormInput 
               label="Phone"
               name="phone"
-              placeholder="+1 000 000 0000"
+              placeholder="+91 00000 00000"
               type="tel"
               value={form.phone}
               onChange={handleChange}

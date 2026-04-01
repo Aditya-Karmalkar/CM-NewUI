@@ -1,7 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase";
+import { signInWithEmail } from "../supabase";
 import { SignInPage, Testimonial } from "./ui/sign-in";
 import authHero from "../assets/auth_hero.png";
 
@@ -30,11 +29,19 @@ const Signin = () => {
     const password = formData.get("password") as string;
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate("/health-dashboard");
-    } catch (err) {
+      const { data, error } = await signInWithEmail(email, password);
+      if (error) throw error;
+      
+      // Navigate based on user type
+      const userType = data.user?.user_metadata?.user_type;
+      if (userType === 'Doctor') {
+        navigate("/health-dashboard"); // RoleBasedDashboard handles the view
+      } else {
+        navigate("/health-dashboard");
+      }
+    } catch (err: any) {
       console.error("Sign in failed:", err);
-      alert("Invalid credentials. Please try again.");
+      alert(err.message || "Invalid credentials. Please try again.");
     }
   };
 

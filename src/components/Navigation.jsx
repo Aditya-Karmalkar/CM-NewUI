@@ -7,8 +7,13 @@ import CuraMind_logo from "../assets/Curamind_logo.jpg";
 const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  React.useEffect(() => {
+    const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u && u.uid ? u : null));
+    return () => unsub();
+  }, []);
 
   const handleSignOut = async () => {
     try {

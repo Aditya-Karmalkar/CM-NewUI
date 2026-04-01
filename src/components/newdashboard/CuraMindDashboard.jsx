@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Curamind_logo from '../../assets/Curamind_logo.jpg';
 
 // ─── New themed pages ─────────────────────────────────────
 import ChatPage from './pages/ChatPage';
@@ -107,7 +108,7 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut, collapsed }) => {
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
 
   return (
-    <aside style={{
+    <aside data-lenis-prevent style={{
       width: collapsed ? 0 : 230,
       minWidth: collapsed ? 0 : 230,
       background: '#fff',
@@ -124,11 +125,8 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut, collapsed }) => {
     }}>
       {/* Logo */}
       <div style={{ padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${BDR}`, flexShrink: 0 }}>
-        <div style={{ width: 32, height: 32, background: BLUE, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <svg viewBox="0 0 24 24" style={{ width: 17, height: 17, stroke: '#fff', fill: 'none', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
-            <path d="M12 2a10 10 0 100 20A10 10 0 0012 2z" />
-            <path d="M12 8v4l3 3" />
-          </svg>
+        <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+           <img src={Curamind_logo} alt="CuraMind Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 16, fontWeight: 700, color: T1, letterSpacing: '-0.4px', whiteSpace: 'nowrap' }}>
           Cura<span style={{ color: BLUE }}>Mind</span>
@@ -188,16 +186,12 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut, collapsed }) => {
         <div style={{ width: 34, height: 34, borderRadius: '50%', background: BLUE_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: BLUE, flexShrink: 0 }}>
           {initials}
         </div>
-        <div style={{ overflow: 'hidden' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+        <div style={{ overflow: 'hidden', flex: 1 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email}</div>
           <div style={{ fontSize: 10, color: T3 }}>Free plan · CuraMind</div>
         </div>
-        <button onClick={onSignOut} title="Sign out" style={{ marginLeft: 'auto', border: 'none', background: 'transparent', cursor: 'pointer', color: T3, flexShrink: 0, padding: 4 }}>
-          <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, stroke: 'currentColor', fill: 'none', strokeWidth: 2 }}>
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-            <polyline points="16 17 21 12 16 7" />
-            <line x1="21" y1="12" x2="9" y2="12" />
-          </svg>
+        <button onClick={onSignOut} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: ERR, fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 4 }}>
+          Logout
         </button>
       </div>
     </aside>
@@ -658,7 +652,7 @@ const CuraMindDashboard = () => {
       case 'appointments': return <AppointmentsPage appointmentData={location.state?.appointmentData} />;
       case 'emergency-profile': return <EmergencyProfilePage />;
       case 'first-aid-coach': return <FirstAidPage />;
-      case 'profile': return <ProfilePage />;
+      case 'profile': return <ProfilePage onSignOut={handleSignOut} />;
       case 'settings': return <SettingsPage />;
       case 'health-records': return <HealthRecordsPage />;
       case 'metrics': return <HealthMetricsPage />;
@@ -688,13 +682,8 @@ const CuraMindDashboard = () => {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: BG, fontFamily: "'Inter', sans-serif" }}>
-      <style>{`
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${BDR2}; border-radius: 99px; }
-      `}</style>
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: BG, fontFamily: "'Inter', sans-serif", zIndex: 50 }}>
+      {/* No custom scrollbars for better compatibility */}
 
       <Sidebar
         activeView={activeView}
@@ -705,9 +694,30 @@ const CuraMindDashboard = () => {
       />
 
       {/* Main */}
-      <main style={{ marginLeft: sidebarCollapsed ? 0 : 230, flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', transition: 'margin-left 0.25s ease' }}>
+      <main style={{ 
+        position: 'fixed',
+        left: sidebarCollapsed ? 0 : 230,
+        right: 0,
+        top: 0,
+        bottom: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'left 0.25s ease',
+        background: BG,
+        overflow: 'hidden'
+      }}>
         {/* Topbar */}
-        <header style={{ height: 58, background: '#fff', borderBottom: `1px solid ${BDR}`, padding: '0 28px', display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 0, zIndex: 40 }}>
+        <header style={{ 
+          height: 58, 
+          flexShrink: 0,
+          background: '#fff', 
+          borderBottom: `1px solid ${BDR}`, 
+          padding: '0 28px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 14, 
+          zIndex: 40 
+        }}>
           {/* Hamburger */}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: T2, padding: 6, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, stroke: 'currentColor', fill: 'none', strokeWidth: 2, strokeLinecap: 'round' }}>
@@ -786,7 +796,13 @@ const CuraMindDashboard = () => {
         </header>
 
         {/* Content */}
-        <div style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
+        <div style={{ 
+          flex: 1,
+          padding: '24px 28px', 
+          overflowY: 'auto', 
+          WebkitOverflowScrolling: 'touch',
+          position: 'relative'
+        }} data-lenis-prevent>
           {renderContent()}
         </div>
       </main>

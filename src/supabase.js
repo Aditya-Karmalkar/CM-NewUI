@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Updated with actual Supabase project credentials
-const supabaseUrl = "https://wxtyeuyjtrinnufznrkz.supabase.co"
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind4dHlldXlqdHJpbm51Znpucmt6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM3MTc3MTIsImV4cCI6MjA2OTI5MzcxMn0.jAVk8WbdzF2zk3AXv7Slkm3ebjcQFjO4cRK6YoBmX3g"
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -58,18 +58,23 @@ export const ensureUserRecord = async (user) => {
 // Create new user record in users table
 export const createUserRecord = async (user, metadata = {}) => {
   try {
-    const { error } = await supabase
-      .from('users')
-      .insert({
-        id: user.id,
-        email: user.email,
-        full_name: user.user_metadata?.full_name || user.user_metadata?.displayName || metadata.full_name || '',
-        phone: user.user_metadata?.phone || null,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.photoURL || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        ...metadata
-      });
+      // Auto-assign admin role for root system accounts
+      const isAdminEmail = ['admin@curamind.com', 'system.admin@curamind.com', 'root@curamind.com'].includes(user.email);
+      const userType = isAdminEmail ? 'admin' : (user.user_metadata?.user_type || metadata.user_type || 'patient');
+
+      const { error } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.displayName || metadata.full_name || '',
+          phone: user.user_metadata?.phone || null,
+          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.photoURL || null,
+          user_type: userType,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ...metadata
+        });
 
     if (error) {
       console.error('Error creating user record:', error);

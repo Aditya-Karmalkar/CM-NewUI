@@ -17,13 +17,14 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import UserProfile from "./components/UserProfile";
 import Navigation from "./components/Navigation";
 import CuraMindDashboard from "./components/newdashboard/CuraMindDashboard";
+import DoctorDashboard from "./components/doctor-dashboard/DoctorDashboard";
+import AdminDashboard from "./components/admin-dashboard/AdminDashboard";
 import { SettingsLayout } from "./components/settings";
 import EmergencyProfilePage from "./components/emergency/EmergencyProfilePage";
 import "./App.css";
 import "./styles/iridescence.css";
 import { ToastProvider } from "./context/ToastContext";
 import ToastContainer from "./components/ui/ToastContainer";
-import ErrorBoundary from "./components/common/ErrorBoundary";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import OnboardingCheck from "./components/OnboardingCheck";
 import FAQPage from "./components/faq/FAQPage";
@@ -31,13 +32,42 @@ import LandingPage from "./components/landing";
 import { SettingsProvider } from "./context/SettingsContext";
 import PageTransitionWrapper from "./components/transition-effect/PageTransitionWrapper";
 import Header from "./components/landing/Header";
-import Footer from "./components/landing/Footer";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import PaymentPage from "./pages/PaymentPage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import { supabase } from "./supabase";
+
+const RoleBasedDashboard = ({ patientComponent, doctorComponent, adminComponent }: { patientComponent: React.ReactNode, doctorComponent: React.ReactNode, adminComponent: React.ReactNode }) => {
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const userType = session.user.user_metadata?.user_type;
+        if (userType) {
+          setRole(userType);
+          setLoading(false);
+          return;
+        }
+
+        const { data } = await supabase.from('users').select('user_type').eq('id', session.user.id).single();
+        if (data) setRole(data.user_type);
+      }
+      setLoading(false);
+    };
+    checkRole();
+  }, []);
+
+  if (loading) return null;
+  if (role === 'Admin') return <>{adminComponent}</>;
+  if (role === 'Doctor') return <>{doctorComponent}</>;
+  return <>{patientComponent}</>;
+};
 
 const AppContent = () => {
   const location = useLocation();
@@ -85,18 +115,14 @@ const AppContent = () => {
   return (
     <>
       {!isChatPage &&
-        location.pathname !== "/landing" &&
-        location.pathname !== "/" &&
-        location.pathname !== "/health-dashboard" && <Navigation />}
+        !['/', '/landing', '/signin', '/signup', '/forgot-password', '/health-dashboard'].includes(location.pathname) && 
+        !location.pathname.startsWith("/reset-password") && <Navigation />}
       {["/", "/landing"].includes(location.pathname) && <Header />}
       <div
         className={
           !isChatPage &&
-          location.pathname !== "/signin" &&
-          location.pathname !== "/signup" &&
-          location.pathname !== "/forgot-password" &&
-          !location.pathname.startsWith("/reset-password")
-            ? "__className_e8ce0c bg-background text-foreground min-h-screen"
+          !['/signin', '/signup', '/forgot-password'].some(p => location.pathname.startsWith(p))
+            ? "bg-background text-foreground min-h-screen"
             : ""
         }
       >
@@ -143,7 +169,11 @@ const AppContent = () => {
               element={
                 <ProtectedRoute>
                   <OnboardingCheck>
-                    <CuraMindDashboard />
+                    <RoleBasedDashboard 
+                      patientComponent={<CuraMindDashboard />} 
+                      doctorComponent={<DoctorDashboard />} 
+                      adminComponent={<AdminDashboard />} 
+                    />
                   </OnboardingCheck>
                 </ProtectedRoute>
               }
@@ -152,7 +182,11 @@ const AppContent = () => {
               path="/health-dashboard"
               element={
                 <ProtectedRoute>
-                  <CuraMindDashboard />
+                  <RoleBasedDashboard 
+                    patientComponent={<CuraMindDashboard />} 
+                    doctorComponent={<DoctorDashboard />} 
+                    adminComponent={<AdminDashboard />} 
+                  />
                 </ProtectedRoute>
               }
             />

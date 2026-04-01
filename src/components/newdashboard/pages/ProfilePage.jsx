@@ -17,7 +17,7 @@ const SUCC_BG    = '#f0fdf4';
 const ERR        = '#ef4444';
 const ERR_BG     = '#fef2f2';
 
-export default function ProfilePage() {
+export default function ProfilePage({ onSignOut }) {
   const [user, setUser] = useState(null);
   const [supaUser, setSupaUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -136,8 +136,35 @@ export default function ProfilePage() {
         </div>
       </Section>
 
+      <Section title="Account Security">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: T1 }}>Sign Out</div>
+            <div style={{ fontSize: 11, color: T3, marginTop: 2 }}>Securely log out of your CuraMind account</div>
+          </div>
+          <button 
+            onClick={onSignOut}
+            style={{ 
+              padding: '9px 18px', 
+              borderRadius: 8, 
+              border: `1px solid ${ERR}`, 
+              background: 'transparent', 
+              color: ERR, 
+              fontSize: 12, 
+              fontWeight: 600, 
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => { e.target.style.background = ERR_BG; }}
+            onMouseLeave={e => { e.target.style.background = 'transparent'; }}
+          >
+            Sign Out
+          </button>
+        </div>
+      </Section>
+
       {/* Save button */}
-      <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+      <div style={{ display:'flex', gap:12, alignItems:'center', marginTop: 10 }}>
         <button onClick={handleSave} disabled={saving}
           style={{ padding:'11px 28px', border:'none', borderRadius:9, background:BLUE, color:'#fff', fontSize:13, fontWeight:600, cursor:saving?'not-allowed':'pointer', fontFamily:"'Inter',sans-serif" }}>
           {saving ? 'Saving…' : 'Save Changes'}

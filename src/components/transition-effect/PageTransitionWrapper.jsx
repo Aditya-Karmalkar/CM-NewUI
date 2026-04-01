@@ -23,10 +23,20 @@ const pageVariants = {
 };
 
 const PageTransitionWrapper = ({ children, location }) => {
-  const [showTransition, setShowTransition] = useState(true);
-  const [showContent, setShowContent] = useState(false);
+  const [showTransition, setShowTransition] = useState(false);
+  const [showContent, setShowContent] = useState(true);
+
+  const isAuthPage = ['/signin', '/signup', '/forgot-password', '/reset-password'].some(path => 
+    location.pathname.startsWith(path)
+  );
 
   useEffect(() => {
+    if (isAuthPage) {
+      setShowTransition(false);
+      setShowContent(true);
+      return;
+    }
+
     setShowTransition(true);
     setShowContent(false);
 
@@ -38,7 +48,7 @@ const PageTransitionWrapper = ({ children, location }) => {
     return () => {
       clearTimeout(timer);
     };
-  }, [location.pathname]);
+  }, [location.pathname, isAuthPage]);
 
   return (
     <AnimatePresence mode="wait">
@@ -48,7 +58,7 @@ const PageTransitionWrapper = ({ children, location }) => {
         initial="initial"
         animate="animate"
         exit="exit"
-        className={`relative min-h-screen overflow-hidden transition-colors duration-500`}
+        className={`relative min-h-screen transition-colors duration-500`}
       >
         {showTransition && (
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white pointer-events-none">

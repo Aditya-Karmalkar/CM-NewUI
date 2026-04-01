@@ -4,7 +4,7 @@ import specialistImage from "../../assets/doctor_female_portrait.png";
 
 const Benefits = () => {
   return (
-    <section id="benefits" style={{ backgroundColor: "#fff", padding: "100px 0" }}>
+    <section id="services" style={{ backgroundColor: "#fff", padding: "100px 0" }}>
       <div style={{ maxWidth: "1250px", margin: "0 auto", padding: "0 6%" }}>
         
         {/* Horizontal High-Fidelity Card - Fixed Wrap Issue */}

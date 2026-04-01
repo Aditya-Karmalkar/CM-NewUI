@@ -8,6 +8,7 @@ const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -23,15 +24,19 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
+    const unsub = auth.onAuthStateChanged((u) => {
+      // Small delay to ensure state is clean
+      setCurrentUser(u && u.uid ? u : null);
+      setAuthLoading(false);
+    });
     return () => unsub();
   }, []);
 
   const navLinks = [
     { name: "Home", path: "/" },
-    { name: "Services", path: "#services" },
-    { name: "About Us", path: "#about" },
-    { name: "FAQ", path: "#faq" },
+    { name: "Services", path: "/#services" },
+    { name: "About Us", path: "/#about" },
+    { name: "FAQ", path: "/#faq" },
   ];
 
   return (
@@ -86,9 +91,9 @@ const Header = () => {
           {/* Desktop nav links — Centered like image */}
           <div className="hidden md:flex items-center gap-10">
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.name}
-                to={link.path}
+                href={link.path}
                 style={{
                   fontFamily: "'Inter', sans-serif",
                   fontWeight: 500,
@@ -101,20 +106,8 @@ const Header = () => {
                 onMouseLeave={e => e.target.style.color = "#595959"}
               >
                 {link.name}
-              </Link>
+              </a>
             ))}
-            <Link
-              to="/blog"
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                fontWeight: 500,
-                fontSize: "14px",
-                color: "#595959",
-                textDecoration: "none"
-              }}
-            >
-              Blog
-            </Link>
           </div>
 
           {/* CTA buttons — Sign in & Get started */}
@@ -214,14 +207,14 @@ const Header = () => {
         {mobileMenuOpen && (
           <div style={{ backgroundColor: "#fff", borderRadius: "24px", marginTop: "8px", padding: "16px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.name}
-                to={link.path}
+                href={link.path}
                 onClick={() => setMobileMenuOpen(false)}
                 style={{ display: "block", fontFamily: "'Inter', sans-serif", fontWeight: 500, fontSize: "15px", color: "#111", padding: "10px 0", borderBottom: "1px solid #edeef1", textDecoration: "none" }}
               >
                 {link.name}
-              </Link>
+              </a>
             ))}
             {!currentUser && (
               <Link

@@ -16,7 +16,9 @@ const Hero = () => {
   const opacityBackground = useTransform(scrollY, [0, 300], [1, 0.4]);
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => setCurrentUser(u));
+    const unsub = auth.onAuthStateChanged((u) => {
+      setCurrentUser(u && u.uid ? u : null);
+    });
     return () => unsub();
   }, []);
 

@@ -57,7 +57,7 @@ export const transcribeVoiceToText = async (audioInput) => {
  * @param {string} modelName - Display name of the model
  * @returns {Promise<Object>} Response with error and output
  */
-export const sendChatMessage = async (messages, modelName = 'Qwen 2.5 7B') => {
+export const sendChatMessage = async (messages, modelName = 'Mistral Small (Direct)') => {
   try {
     console.log('API Service - Sending message with model:', modelName);
     
@@ -404,7 +404,7 @@ const checkDoctorConsultationNeeded = (response, healthContext) => {
  * @param {string} userId - User ID for health context
  * @returns {Promise<Object>} Response with error, output, and consultation info
  */
-export const sendHealthChatMessage = async (messages, modelName = 'Qwen 2.5 7B', userId = null) => {
+export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small (Direct)', userId = null) => {
   try {
     console.log('Health Chat - Sending message with model:', modelName);
     

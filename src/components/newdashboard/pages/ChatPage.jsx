@@ -18,7 +18,7 @@ const T3         = '#a0a0a0';
 
 // Model selection hidden from UI for a cleaner patient experience
 // We now allow users to select models. (Filtered for Bytez free-tier)
-const DEFAULT_MODEL = 'Llama 3.2 1B (Standard)';
+const DEFAULT_MODEL = 'Mistral Small (Direct)';
 
 const QUICK = [
   "What are symptoms of high blood pressure?",
