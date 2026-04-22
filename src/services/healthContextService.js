@@ -1,6 +1,6 @@
 import { supabase } from '../supabase';
-import { auth, db } from '../firebase';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { auth } from '../firebase';
+// Firebase Firestore is deprecated, moving to Supabase for all health data
 
 /**
  * Fetch patient's health metrics history
@@ -33,13 +33,14 @@ export const getPatientHealthMetrics = async (userId, days = 30) => {
     };
 
     data.forEach(metric => {
-      if (organizedMetrics[metric.type]) {
-        organizedMetrics[metric.type].push(metric);
+      const mType = metric.metric_type || metric.type;
+      if (mType && organizedMetrics[mType]) {
+        organizedMetrics[mType].push(metric);
       }
       
       // Keep track of latest value for each type
-      if (!organizedMetrics.latest[metric.type]) {
-        organizedMetrics.latest[metric.type] = metric;
+      if (mType && !organizedMetrics.latest[mType]) {
+        organizedMetrics.latest[mType] = metric;
       }
     });
 
@@ -60,8 +61,8 @@ export const getPatientMedications = async (userId) => {
     const { data, error} = await supabase
       .from('medications')
       .select('*')
-      .eq('user_id', userId)
-      .eq('active', true);
+      .eq('user_id', userId);
+      // Removed .eq('is_active', true) to prevent empty results if column missing
 
     if (error) throw error;
     return data || [];
@@ -78,26 +79,17 @@ export const getPatientMedications = async (userId) => {
  */
 export const getPatientAppointments = async (userId) => {
   try {
-    const user = auth.currentUser;
-    if (!user) return [];
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('appointment_date', { ascending: false })
+      .limit(10);
 
-    const appointmentsRef = collection(db, 'users', userId, 'appointments');
-    const q = query(
-      appointmentsRef,
-      orderBy('createdAt', 'desc'),
-      limit(10)
-    );
-
-    const querySnapshot = await getDocs(q);
-    const appointments = [];
-    
-    querySnapshot.forEach((doc) => {
-      appointments.push({ id: doc.id, ...doc.data() });
-    });
-
-    return appointments;
+    if (error) throw error;
+    return data || [];
   } catch (error) {
-    console.error('Error fetching appointments:', error);
+    console.error('Error fetching appointments from Supabase:', error);
     return [];
   }
 };
@@ -112,170 +104,100 @@ export const analyzeHealthMetrics = (metrics) => {
   const recommendations = [];
   let urgencyLevel = 'normal'; // normal, moderate, high, critical
 
-  // Analyze Blood Pressure
-  if (metrics.latest.blood_pressure) {
-    const bp = metrics.latest.blood_pressure;
-    const systolic = bp.systolic;
-    const diastolic = bp.diastolic;
+  if (!metrics) return { concerns, recommendations, urgencyLevel };
 
-    if (systolic >= 180 || diastolic >= 120) {
-      concerns.push({
-        type: 'blood_pressure',
-        severity: 'critical',
-        message: 'Hypertensive Crisis - Extremely high blood pressure detected',
-        value: `${systolic}/${diastolic} mmHg`
-      });
-      urgencyLevel = 'critical';
-      recommendations.push('Seek immediate medical attention');
-    } else if (systolic >= 140 || diastolic >= 90) {
-      concerns.push({
-        type: 'blood_pressure',
-        severity: 'high',
-        message: 'High blood pressure (Hypertension)',
-        value: `${systolic}/${diastolic} mmHg`
-      });
-      if (urgencyLevel === 'normal') urgencyLevel = 'high';
-      recommendations.push('Consult with a cardiologist');
-    } else if (systolic < 90 || diastolic < 60) {
-      concerns.push({
-        type: 'blood_pressure',
-        severity: 'moderate',
-        message: 'Low blood pressure (Hypotension)',
-        value: `${systolic}/${diastolic} mmHg`
-      });
+  // 1. Blood Pressure Analysis (Closer to ICMR/AHA standards)
+  const bpHistory = metrics.blood_pressure || [];
+  if (bpHistory.length > 0) {
+    const latest = bpHistory[0];
+    const systolic = latest.systolic || latest.value_systolic;
+    const diastolic = latest.diastolic || latest.value_diastolic;
+
+    if (systolic >= 140 || diastolic >= 90) {
+      concerns.push(`High Blood Pressure: Last reading was ${systolic}/${diastolic} mmHg.`);
+      recommendations.push("Consult a cardiologist for a hypertensive evaluation.");
+      urgencyLevel = systolic >= 180 || diastolic >= 120 ? 'critical' : 'high';
+    } else if (systolic >= 130 || diastolic >= 80) {
+      concerns.push(`Stage 1 Hypertension: Reading was ${systolic}/${diastolic} mmHg.`);
+      recommendations.push("Monitor daily and reduce sodium intake.");
       if (urgencyLevel === 'normal') urgencyLevel = 'moderate';
     }
   }
 
-  // Analyze Heart Rate
-  if (metrics.latest.heart_rate) {
-    const hr = metrics.latest.heart_rate.value;
+  // 2. Blood Glucose Analysis (ADA Standards)
+  const glucoseHistory = metrics.blood_glucose || [];
+  if (glucoseHistory.length > 0) {
+    const latest = glucoseHistory[0];
+    const value = latest.value || latest.glucose_level;
+    const isFasting = latest.status === 'fasting' || latest.is_fasting;
 
-    if (hr > 100) {
-      concerns.push({
-        type: 'heart_rate',
-        severity: hr > 120 ? 'high' : 'moderate',
-        message: 'Elevated heart rate (Tachycardia)',
-        value: `${hr} bpm`
-      });
-      if (urgencyLevel === 'normal') urgencyLevel = hr > 120 ? 'high' : 'moderate';
-      recommendations.push('Consider consulting a cardiologist');
-    } else if (hr < 60) {
-      concerns.push({
-        type: 'heart_rate',
-        severity: 'moderate',
-        message: 'Low heart rate (Bradycardia)',
-        value: `${hr} bpm`
-      });
-      if (urgencyLevel === 'normal') urgencyLevel = 'moderate';
+    if (isFasting) {
+      if (value > 126) {
+        concerns.push(`High Fasting Glucose: ${value} mg/dL.`);
+        recommendations.push("See an endocrinologist; this may indicate diabetes.");
+        urgencyLevel = 'high';
+      } else if (value > 100) {
+        concerns.push(`Prediabetic Fasting Glucose: ${value} mg/dL.`);
+        recommendations.push("Discuss lifestyle changes and glucose monitoring with your doctor.");
+        if (urgencyLevel === 'normal') urgencyLevel = 'moderate';
+      }
+    } else {
+      if (value > 200) {
+        concerns.push(`Hyperglycemia: Random glucose is ${value} mg/dL.`);
+        recommendations.push("Seek immediate medical assessment for glucose management.");
+        urgencyLevel = 'high';
+      }
     }
   }
 
-  // Analyze Blood Glucose
-  if (metrics.latest.blood_glucose) {
-    const glucose = metrics.latest.blood_glucose.value;
-
-    if (glucose > 200) {
-      concerns.push({
-        type: 'blood_glucose',
-        severity: 'high',
-        message: 'Very high blood sugar level',
-        value: `${glucose} mg/dL`
-      });
-      if (urgencyLevel === 'normal' || urgencyLevel === 'moderate') urgencyLevel = 'high';
-      recommendations.push('Consult with an endocrinologist immediately');
-    } else if (glucose > 126) {
-      concerns.push({
-        type: 'blood_glucose',
-        severity: 'moderate',
-        message: 'Elevated blood sugar (possible diabetes)',
-        value: `${glucose} mg/dL`
-      });
-      if (urgencyLevel === 'normal') urgencyLevel = 'moderate';
-      recommendations.push('Schedule an appointment with an endocrinologist');
-    } else if (glucose < 70) {
-      concerns.push({
-        type: 'blood_glucose',
-        severity: 'high',
-        message: 'Low blood sugar (Hypoglycemia)',
-        value: `${glucose} mg/dL`
-      });
-      if (urgencyLevel === 'normal' || urgencyLevel === 'moderate') urgencyLevel = 'high';
-      recommendations.push('Consume fast-acting carbohydrates and monitor closely');
-    }
-  }
-
-  // Analyze Weight trends
-  if (metrics.weight && metrics.weight.length >= 2) {
-    const latestWeight = metrics.weight[0].value;
-    const previousWeight = metrics.weight[metrics.weight.length - 1].value;
-    const weightChange = ((latestWeight - previousWeight) / previousWeight) * 100;
-
-    if (Math.abs(weightChange) > 10) {
-      concerns.push({
-        type: 'weight',
-        severity: 'moderate',
-        message: `Significant weight ${weightChange > 0 ? 'gain' : 'loss'} detected`,
-        value: `${Math.abs(weightChange).toFixed(1)}% change`
-      });
-      if (urgencyLevel === 'normal') urgencyLevel = 'moderate';
-      recommendations.push('Discuss weight changes with your doctor');
-    }
-  }
-
-  // Analyze Sleep
-  if (metrics.latest.sleep) {
-    const sleepHours = metrics.latest.sleep.value;
-
-    if (sleepHours < 6) {
-      concerns.push({
-        type: 'sleep',
-        severity: 'moderate',
-        message: 'Insufficient sleep duration',
-        value: `${sleepHours} hours`
-      });
-      recommendations.push('Aim for 7-9 hours of sleep per night');
-    }
-  }
-
-  return {
-    concerns,
-    recommendations,
-    urgencyLevel,
-    requiresDoctorConsultation: urgencyLevel === 'high' || urgencyLevel === 'critical'
-  };
+  return { concerns, recommendations, urgencyLevel };
 };
 
 /**
- * Determine recommended doctor specialty based on health concerns
+ * Format health context data for AI readability
+ * @param {Object} data - Health data object
+ * @returns {string} Formatted string
+ */
+export const formatHealthContextForAI = (data) => {
+  if (typeof data === 'string') return data;
+  return JSON.stringify(data, null, 2);
+};
+
+/**
+ * Get recommended doctor specialties based on health concerns
  * @param {Array} concerns - List of health concerns
- * @returns {Array} Recommended specialties
+ * @returns {Array} List of specialties
  */
 export const getRecommendedSpecialties = (concerns) => {
-  const specialtyMap = {
-    blood_pressure: ['Cardiologist', 'General Practitioner'],
-    heart_rate: ['Cardiologist'],
-    blood_glucose: ['Endocrinologist', 'General Practitioner'],
-    weight: ['Endocrinologist', 'Nutritionist', 'General Practitioner'],
-    sleep: ['Sleep Specialist', 'General Practitioner']
-  };
-
-  const recommendedSpecialties = new Set();
-
-  concerns.forEach(concern => {
-    const specialties = specialtyMap[concern.type] || ['General Practitioner'];
-    specialties.forEach(spec => recommendedSpecialties.add(spec));
+  const specialties = new Set();
+  const lowerConcerns = Array.isArray(concerns) ? concerns.map(c => c.toLowerCase()) : [];
+  
+  lowerConcerns.forEach(concern => {
+    if (concern.includes('heart') || concern.includes('blood pressure') || concern.includes('hypertension')) {
+      specialties.add('Cardiologist');
+    }
+    if (concern.includes('glucose') || concern.includes('diabetes') || concern.includes('sugar')) {
+      specialties.add('Endocrinologist');
+    }
+    if (concern.includes('weight') || concern.includes('diet')) {
+      specialties.add('Nutritionist');
+    }
+    if (concern.includes('kidney')) {
+      specialties.add('Nephrologist');
+    }
   });
 
-  return Array.from(recommendedSpecialties);
+  return Array.from(specialties);
 };
 
 /**
- * Build comprehensive health context for AI
+ * Build a comprehensive patient context for the AI
  * @param {string} userId - User ID
- * @returns {Promise<Object>} Complete health context
+ * @returns {Promise<Object>} Object containing the context string and raw analysis
  */
 export const buildHealthContext = async (userId) => {
+  if (!userId) return { context: "No patient user ID provided.", analysis: null };
+
   try {
     const [metrics, medications, appointments] = await Promise.all([
       getPatientHealthMetrics(userId),
@@ -283,82 +205,57 @@ export const buildHealthContext = async (userId) => {
       getPatientAppointments(userId)
     ]);
 
-    const analysis = metrics ? analyzeHealthMetrics(metrics) : null;
+    const analysis = analyzeHealthMetrics(metrics);
+
+    let contextString = "PATIENT HEALTH CONTEXT:\n";
+    
+    // Medications
+    contextString += "\nCURRENT MEDICATIONS:\n";
+    if (medications && medications.length > 0) {
+      medications.forEach(m => {
+        contextString += `- ${m.name}: ${m.dosage || ''} ${m.frequency || ''} (Instructions: ${m.instructions || 'N/A'})\n`;
+      });
+    } else {
+      contextString += "No active medications found.\n";
+    }
+
+    // Recent Metrics
+    contextString += "\nLATEST VITALS & METRICS:\n";
+    const latest = metrics?.latest || {};
+    if (Object.keys(latest).length > 0) {
+      if (latest.blood_pressure) {
+        contextString += `- Blood Pressure: ${latest.blood_pressure.systolic}/${latest.blood_pressure.diastolic} mmHg\n`;
+      }
+      if (latest.blood_glucose) {
+        contextString += `- Blood Glucose: ${latest.blood_glucose.value} mg/dL (${latest.blood_glucose.status || 'random'})\n`;
+      }
+    } else {
+      contextString += "No recent health metrics recorded.\n";
+    }
+
+    // Upcoming Appointments
+    contextString += "\nRECENT & UPCOMING APPOINTMENTS:\n";
+    if (appointments && appointments.length > 0) {
+      appointments.forEach(a => {
+        contextString += `- ${a.doctor_name || 'Doctor'} (${a.appointment_type || 'Consultation'}): ${new Date(a.appointment_date).toLocaleString()}\n`;
+      });
+    }
+
+    if (analysis.concerns.length > 0) {
+      contextString += "\nAI PRE-ANALYSIS CONCERNS:\n";
+      analysis.concerns.forEach(c => contextString += `! ${c}\n`);
+    }
 
     return {
-      metrics,
-      medications,
-      appointments,
+      context: contextString,
       analysis,
-      timestamp: new Date().toISOString()
+      raw: { metrics, medications, appointments }
     };
   } catch (error) {
-    console.error('Error building health context:', error);
-    return null;
+    console.error("Error building health context:", error);
+    return { 
+      context: "Error retrieving patient health context.", 
+      analysis: null 
+    };
   }
-};
-
-/**
- * Format health context for AI prompt
- * @param {Object} healthContext - Health context object
- * @returns {string} Formatted context string
- */
-export const formatHealthContextForAI = (healthContext) => {
-  if (!healthContext) return '';
-
-  let context = '\n\n=== PATIENT HEALTH CONTEXT ===\n';
-
-  // Latest metrics
-  if (healthContext.metrics?.latest) {
-    context += '\nCurrent Health Metrics:\n';
-    
-    if (healthContext.metrics.latest.blood_pressure) {
-      const bp = healthContext.metrics.latest.blood_pressure;
-      context += `- Blood Pressure: ${bp.systolic}/${bp.diastolic} mmHg\n`;
-    }
-    
-    if (healthContext.metrics.latest.heart_rate) {
-      context += `- Heart Rate: ${healthContext.metrics.latest.heart_rate.value} bpm\n`;
-    }
-    
-    if (healthContext.metrics.latest.blood_glucose) {
-      context += `- Blood Glucose: ${healthContext.metrics.latest.blood_glucose.value} mg/dL\n`;
-    }
-    
-    if (healthContext.metrics.latest.weight) {
-      context += `- Weight: ${healthContext.metrics.latest.weight.value} kg\n`;
-    }
-    
-    if (healthContext.metrics.latest.sleep) {
-      context += `- Sleep: ${healthContext.metrics.latest.sleep.value} hours\n`;
-    }
-  }
-
-  // Current medications
-  if (healthContext.medications?.length > 0) {
-    context += '\nCurrent Medications:\n';
-    healthContext.medications.forEach(med => {
-      context += `- ${med.name} (${med.dosage}): ${med.frequency}\n`;
-    });
-  }
-
-  // Health concerns
-  if (healthContext.analysis?.concerns?.length > 0) {
-    context += '\nHealth Concerns Detected:\n';
-    healthContext.analysis.concerns.forEach(concern => {
-      context += `- ${concern.message} (${concern.value}) - Severity: ${concern.severity}\n`;
-    });
-  }
-
-  // Recommendations
-  if (healthContext.analysis?.recommendations?.length > 0) {
-    context += '\nRecommendations:\n';
-    healthContext.analysis.recommendations.forEach(rec => {
-      context += `- ${rec}\n`;
-    });
-  }
-
-  context += '\n=== END PATIENT CONTEXT ===\n';
-
-  return context;
 };

@@ -1,9 +1,20 @@
 import Bytez from 'bytez.js';
-import { buildHealthContext, formatHealthContextForAI, analyzeHealthMetrics, getRecommendedSpecialties } from './healthContextService';
+import { buildHealthContext, formatHealthContextForAI, getRecommendedSpecialties } from './healthContextService';
 
 // Initialize Bytez SDK with API key from environment variable
-const BYTEZ_API_KEY = process.env.REACT_APP_BYTEZ_API_KEY || 'ba2458f496e23353b5b09fc57b548bd7';
-const MISTRAL_API_KEY = process.env.REACT_APP_MISTRAL_API_KEY || 'mBGZS5Mz5J8jXhTzDmTfDx6GLfvW2RjH';
+const BYTEZ_API_KEY = process.env.REACT_APP_BYTEZ_API_KEY;
+const MISTRAL_API_KEY = process.env.REACT_APP_MISTRAL_API_KEY;
+
+// Debug log to help identify if keys are actually missing from environment
+if (!BYTEZ_API_KEY || !MISTRAL_API_KEY) {
+  console.warn('⚠️ [BytezService] API Keys NOT properly loaded!');
+  console.info('Required: REACT_APP_BYTEZ_API_KEY, REACT_APP_MISTRAL_API_KEY');
+  console.info('Current state:', { 
+    Bytez: BYTEZ_API_KEY ? 'Present' : 'MISSING', 
+    Mistral: MISTRAL_API_KEY ? 'Present' : 'MISSING' 
+  });
+  console.info('Reminder: Restart your dev server after modifying the .env file.');
+}
 
 const sdk = new Bytez(BYTEZ_API_KEY);
 
@@ -15,11 +26,11 @@ export const AVAILABLE_MODELS = {
 
   // Meta Llama Models - Strong general reasoning
   'Llama 3.2 1B (Standard)': 'meta-llama/Llama-3.2-1B-Instruct',
-  
+
   // Qwen Models (Alibaba) - Excellent multilingual support
   'Qwen 2.5 1.5B (Standard)': 'Qwen/Qwen2.5-1.5B-Instruct',
   'Qwen 2.5 0.5B (Fast)': 'Qwen/Qwen2.5-0.5B-Instruct',
-  
+
   // Google Gemma - Efficient and fast
   'Gemma 2 2B (Detailed)': 'google/gemma-2-2b-it',
 };
@@ -34,16 +45,16 @@ export const transcribeVoiceToText = async (audioInput) => {
   try {
     const whisper = sdk.model("openai/whisper-large-v3");
     const { error, output } = await whisper.run(audioInput);
-    
+
     if (error) {
       console.error('Whisper Transcription Error:', error);
       return null;
     }
-    
+
     if (typeof output === 'string') return output;
     if (Array.isArray(output) && output[0]?.text) return output[0].text;
     if (output?.text) return output.text;
-    
+
     return JSON.stringify(output);
   } catch (err) {
     console.error('Whisper Pipeline Error:', err);
@@ -60,9 +71,9 @@ export const transcribeVoiceToText = async (audioInput) => {
 export const sendChatMessage = async (messages, modelName = 'Mistral Small (Direct)') => {
   try {
     console.log('API Service - Sending message with model:', modelName);
-    
+
     const modelId = AVAILABLE_MODELS[modelName] || AVAILABLE_MODELS['Llama 3.2 1B (Standard)'];
-    
+
     // ----------------------------------------------------------------------
     // MISTRAL API BRANCH
     // ----------------------------------------------------------------------
@@ -70,7 +81,7 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
       const systemMsg = messages.find(msg => msg.role === 'system');
       const mistralMessages = [];
       if (systemMsg) mistralMessages.push({ role: 'system', content: systemMsg.content });
-      
+
       messages.filter(msg => msg.role !== 'system').forEach(msg => {
         mistralMessages.push({ role: msg.role === 'bot' ? 'assistant' : msg.role, content: msg.content });
       });
@@ -97,13 +108,13 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
     // Format messages for Bytez API - must alternate user/assistant
     let formattedMessages = [];
     let systemMessage = null;
-    
+
     // Extract system message if present
     const systemMsg = messages.find(msg => msg.role === 'system');
     if (systemMsg) {
       systemMessage = { role: 'system', content: systemMsg.content };
     }
-    
+
     // Filter out system messages and format the rest
     const conversationMessages = messages
       .filter(msg => msg.role !== 'system')
@@ -111,11 +122,11 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
         role: msg.role === 'bot' ? 'assistant' : msg.role,
         content: msg.content
       }));
-    
+
     // Ensure alternating user/assistant pattern
     let lastRole = null;
     const alternatingMessages = [];
-    
+
     for (const msg of conversationMessages) {
       // Skip consecutive messages with the same role
       if (msg.role !== lastRole) {
@@ -123,13 +134,13 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
         lastRole = msg.role;
       }
     }
-    
+
     // Build final message array
     if (systemMessage) {
       formattedMessages.push(systemMessage);
     }
     formattedMessages = formattedMessages.concat(alternatingMessages);
-    
+
     // Ensure the conversation ends with a user message
     if (formattedMessages.length > 0 && formattedMessages[formattedMessages.length - 1].role === 'assistant') {
       console.warn('Conversation ends with assistant message, this may cause issues');
@@ -137,18 +148,18 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
 
     console.log('Bytez Service - Formatted messages:', formattedMessages);
     console.log('Bytez Service - Calling model.run()...');
-    
+
     const result = await model.run(formattedMessages);
-    
+
     console.log('Bytez Service - Raw result:', result);
-    
+
     const { error, output } = result;
 
     if (error) {
       console.error('Bytez API Error:', error);
-      return { 
-        error, 
-        output: `I'm having trouble connecting to the AI service. Error: ${JSON.stringify(error)}` 
+      return {
+        error,
+        output: `I'm having trouble connecting to the AI service. Error: ${JSON.stringify(error)}`
       };
     }
 
@@ -162,7 +173,7 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
 
     // Handle different output formats
     let textOutput = '';
-    
+
     if (typeof output === 'string') {
       textOutput = output;
     } else if (typeof output === 'object') {
@@ -190,9 +201,9 @@ export const sendChatMessage = async (messages, modelName = 'Mistral Small (Dire
   } catch (err) {
     console.error('Bytez Service Error:', err);
     console.error('Error stack:', err.stack);
-    return { 
-      error: err, 
-      output: `Service error: ${err.message || 'Unknown error occurred'}. Please check the console for details.` 
+    return {
+      error: err,
+      output: `Service error: ${err.message || 'Unknown error occurred'}. Please check the console for details.`
     };
   }
 };
@@ -212,13 +223,13 @@ export const streamChatMessage = async (messages, modelName, onChunk) => {
     // Format messages for Bytez API - must alternate user/assistant
     let formattedMessages = [];
     let systemMessage = null;
-    
+
     // Extract system message if present
     const systemMsg = messages.find(msg => msg.role === 'system');
     if (systemMsg) {
       systemMessage = { role: 'system', content: systemMsg.content };
     }
-    
+
     // Filter out system messages and format the rest
     const conversationMessages = messages
       .filter(msg => msg.role !== 'system')
@@ -226,18 +237,18 @@ export const streamChatMessage = async (messages, modelName, onChunk) => {
         role: msg.role === 'bot' ? 'assistant' : msg.role,
         content: msg.content
       }));
-    
+
     // Ensure alternating user/assistant pattern
     let lastRole = null;
     const alternatingMessages = [];
-    
+
     for (const msg of conversationMessages) {
       if (msg.role !== lastRole) {
         alternatingMessages.push(msg);
         lastRole = msg.role;
       }
     }
-    
+
     // Build final message array
     if (systemMessage) {
       formattedMessages.push(systemMessage);
@@ -254,7 +265,7 @@ export const streamChatMessage = async (messages, modelName, onChunk) => {
 
     // Handle different output formats
     let textOutput = '';
-    
+
     if (typeof output === 'string') {
       textOutput = output;
     } else if (typeof output === 'object') {
@@ -289,19 +300,19 @@ export const testBytezConnection = async () => {
   try {
     console.log('Testing Bytez API connection...');
     console.log('API Key:', BYTEZ_API_KEY ? `${BYTEZ_API_KEY.substring(0, 10)}...` : 'NOT SET');
-    
+
     const model = sdk.model('Qwen/Qwen2.5-7B-Instruct');
     const testMessages = [
       { role: 'user', content: 'Say "Hello" if you can hear me.' }
     ];
-    
+
     const { error, output } = await model.run(testMessages);
-    
+
     if (error) {
       console.error('Connection test failed:', error);
       return { success: false, error, message: 'API connection failed' };
     }
-    
+
     console.log('Connection test successful:', output);
     return { success: true, output, message: 'API connection successful' };
   } catch (err) {
@@ -317,36 +328,35 @@ export const testBytezConnection = async () => {
  * @returns {string} System prompt
  */
 const createHealthSystemPrompt = (healthContext) => {
-  let prompt = `You are CuraMind Health Assistant, an AI medical advisor integrated into a comprehensive health management platform, specifically optimized for users in India.
+  let prompt = `You are CuraMind Medical AI, a highly responsible health co-pilot optimized for Indian patients. Your goal is to provide accurate, evidence-based health information and personalized insights based on the patient's medical data.
 
-CRITICAL RULES:
-1. ONLY answer health, medical, and wellness-related questions.
-2. If asked about non-health topics, politely redirect: "I'm specialized in health and medical topics. Please ask me about your health concerns, symptoms, medications, or wellness."
-3. Always recommend consulting healthcare professionals for serious conditions.
-4. Never provide definitive diagnoses - only educational information.
-5. Be empathetic, clear, and supportive.
-6. Use the patient's health data to provide personalized insights.
-7. If you detect serious conditions, STRONGLY recommend seeing a doctor.
+CORE OPERATING PRINCIPLES:
+1. GREETINGS & RAPPORT: You are allowed to respond to friendly greetings (Hello, Hi, Hii, Good morning, etc.) with a warm, medical-focused professional welcome.
+2. MEDICAL SCOPE: Beyond greetings, ONLY answer health, medication, wellness, and medical procedure questions. For unrelated non-health topics, politely redirect back to health.
+2. PERSONALIZATION: Use the provided PATIENT HEALTH CONTEXT to tailor your advice. If metrics (BP, Glucose) are high, prioritize addressing them even if the user asks a general question.
+3. RESPONSIBILITY: NEVER provide a definitive diagnosis. Use phrases like "Your symptoms suggest...", "Possible causes could include...", and "You should consult a professional for verification."
+4. STRUCTURED RESPONSES: Always use bullet points, bold text for key terms, and markdown tables for data comparisons. Avoid large blocks of text.
+5. INDIAN LOCALIZATION: 
+   - All costs must be in Indian Rupees (₹).
+   - Use Indian emergency protocols: 102/108.
+   - Reference Indian diet (e.g., Dal, Sabzi, Paneer) and seasonal wellness tips for the Indian climate.
+   - Follow ICMR and National Health Portal (NHP) India guidelines.
 
-INDIAN LOCALIZATION RULES:
-- For any financial/cost mentions, use Indian Rupees (₹/INR).
-- Use Indian emergency numbers: 102 (Ambulance), 108 (Emergency) where relevant.
-- Align medical advice with guidelines from the Indian Council of Medical Research (ICMR).
-- When suggesting diet or wellness, consider Indian cultural contexts, seasonal items, and regional practices.
-
-YOUR CAPABILITIES:
-- Analyze symptoms and suggest possible causes
-- Provide medication information and interactions
-- Offer lifestyle and wellness advice
-- Interpret health metrics and trends
-- Recommend when to seek medical attention
-- Answer general health questions`;
+RESPONSE FORMATTING:
+- Brief Greeting: "Hello, I've reviewed your health profile."
+- Primary Answer: (Direct answer to user query)
+- Health Context Observation: (Proactive mention of any concerning metrics in their profile)
+- Actionable Steps: (Numbered list of steps)
+- Specialist Recommendation: (Based on concerns)
+- Standard Disclaimer: "This is educational information and not a substitute for professional medical advice. For emergencies, call 108 immediately."`;
 
   if (healthContext) {
-    prompt += formatHealthContextForAI(healthContext);
-    
+    const contextStr = typeof healthContext === 'string' ? healthContext : (healthContext.context || JSON.stringify(healthContext));
+    prompt += `\n\n${contextStr}`;
+
     if (healthContext.analysis?.requiresDoctorConsultation) {
-      prompt += `\n\n⚠️ IMPORTANT: Based on the patient's current health metrics, there are concerning values that require medical attention. You MUST recommend scheduling an appointment with a doctor in your response.\n`;
+      const spec = healthContext.analysis.recommendedSpecialties?.[0] || 'doctor';
+      prompt += `\n\n⚠️ URGENCY DETECTED: The patient profile shows concerning values. You MUST emphasize scheduling an appointment with a ${spec} in this response.\n`;
     }
   }
 
@@ -368,8 +378,8 @@ const checkDoctorConsultationNeeded = (response, healthContext) => {
 
   const responseText = response.toLowerCase();
   const hasUrgentKeyword = urgentKeywords.some(keyword => responseText.includes(keyword));
-  
-  const requiresConsultation = hasUrgentKeyword || 
+
+  const requiresConsultation = hasUrgentKeyword ||
     healthContext?.analysis?.requiresDoctorConsultation ||
     healthContext?.analysis?.urgencyLevel === 'high' ||
     healthContext?.analysis?.urgencyLevel === 'critical';
@@ -379,11 +389,11 @@ const checkDoctorConsultationNeeded = (response, healthContext) => {
 
   if (requiresConsultation) {
     urgencyLevel = healthContext?.analysis?.urgencyLevel || 'moderate';
-    
+
     if (healthContext?.analysis?.concerns) {
       recommendedSpecialties = getRecommendedSpecialties(healthContext.analysis.concerns);
     }
-    
+
     if (recommendedSpecialties.length === 0) {
       recommendedSpecialties = ['General Practitioner'];
     }
@@ -407,18 +417,18 @@ const checkDoctorConsultationNeeded = (response, healthContext) => {
 export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small (Direct)', userId = null) => {
   try {
     console.log('Health Chat - Sending message with model:', modelName);
-    
+
     // Build health context if userId provided
     let healthContext = null;
     if (userId) {
       healthContext = await buildHealthContext(userId);
       console.log('Health Context:', healthContext);
     }
-    
+
     const modelId = AVAILABLE_MODELS[modelName] || Object.values(AVAILABLE_MODELS)[0];
 
     // Create health-focused system prompt
-    const systemPrompt = createHealthSystemPrompt(healthContext);
+    const systemPrompt = createHealthSystemPrompt(healthContext) || "You are CuraMind Medical AI, a responsible health co-pilot optimized for Indian patients. Always focus on medical and health-related topics.";
 
     // Filter and format conversation messages
     const conversationMessages = messages
@@ -454,13 +464,13 @@ export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small
       if (!response.ok) {
         throw new Error(`Mistral API Error details: ${response.status} ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      const textOutput = data.choices[0].message.content;
+      const textOutput = data.choices[0].message.content?.trim() || "Hello! I'm your CuraMind assistant. How can I help with your health today?";
       const consultationInfo = checkDoctorConsultationNeeded(textOutput, healthContext);
 
-      return { 
-        error: null, 
+      return {
+        error: null,
         output: textOutput,
         consultationInfo,
         healthContext
@@ -471,18 +481,18 @@ export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small
     // BYTEZ API BRANCH
     // ----------------------------------------------------------------------
     const model = sdk.model(modelId);
-    
+
     // Ensure alternating pattern
     let lastRole = null;
     const alternatingMessages = [];
-    
+
     for (const msg of conversationMessages) {
       if (msg.role !== lastRole) {
         alternatingMessages.push(msg);
         lastRole = msg.role;
       }
     }
-    
+
     // Some models reject the 'system' role. Embed system instructions into the first user message:
     if (alternatingMessages.length > 0 && alternatingMessages[0].role === 'user') {
       alternatingMessages[0].content = systemPrompt + "\n\nUser Query:\n" + alternatingMessages[0].content;
@@ -493,14 +503,14 @@ export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small
     const formattedMessages = alternatingMessages;
 
     console.log('Formatted messages:', formattedMessages);
-    
+
     const result = await model.run(formattedMessages);
     const { error, output } = result;
 
     if (error) {
       console.error('Bytez API Error:', error);
-      return { 
-        error, 
+      return {
+        error,
         output: `I'm having trouble connecting to the AI service. Error: ${JSON.stringify(error)}`,
         consultationInfo: null
       };
@@ -508,9 +518,9 @@ export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small
 
     // Handle different output formats
     let textOutput = '';
-    
+
     if (typeof output === 'string') {
-      textOutput = output;
+      textOutput = output.trim();
     } else if (typeof output === 'object') {
       if (output.content) {
         textOutput = output.content;
@@ -528,22 +538,26 @@ export const sendHealthChatMessage = async (messages, modelName = 'Mistral Small
       textOutput = String(output);
     }
 
+    if (!textOutput || textOutput.trim() === '') {
+      textOutput = "Hello! I'm your CuraMind assistant. How can I help with your health today?";
+    }
+
     // Check if doctor consultation is needed
     const consultationInfo = checkDoctorConsultationNeeded(textOutput, healthContext);
 
     console.log('Health Chat - Success! Output:', textOutput);
     console.log('Consultation Info:', consultationInfo);
-    
-    return { 
-      error: null, 
+
+    return {
+      error: null,
       output: textOutput,
       consultationInfo,
       healthContext
     };
   } catch (err) {
     console.error('Health Chat Service Error:', err);
-    return { 
-      error: err, 
+    return {
+      error: err,
       output: `Service error: ${err.message || 'Unknown error occurred'}. Please check the console for details.`,
       consultationInfo: null
     };

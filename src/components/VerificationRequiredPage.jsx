@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import CuraMind_logo from '../assets/Curamind_logo.jpg';
+
 import VerificationCheck from './VerificationCheck';
 
 const VerificationRequiredPage = () => {
@@ -11,7 +11,7 @@ const VerificationRequiredPage = () => {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg overflow-hidden border border-gray-100">
         <div className="bg-black py-5 px-4 relative">
           <div className="flex justify-center">
-            <img className="h-12 w-auto rounded-full p-1 bg-white" src={CuraMind_logo} alt="Curamind" />
+            <img className="h-12 w-auto rounded-full p-1" src="/Curamind_logo.png" alt="Curamind" />
           </div>
           <h1 className="mt-2 text-center text-2xl font-bold text-white">Curamind</h1>
           <p className="mt-1 text-center text-xs text-gray-400 max-w-sm mx-auto">

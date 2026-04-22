@@ -1,5 +1,4 @@
 import React from 'react';
-import CuraMind_logo from '../../assets/Curamind_logo.jpg';
 
 const Logo = ({ darkMode, useColor = false }) => {
   return (
@@ -10,7 +9,7 @@ const Logo = ({ darkMode, useColor = false }) => {
           ? 'border-gray-700'
           : 'border-violet-100'
         }`}>
-        <img src={CuraMind_logo} alt="Curamind Logo" className="h-full w-full object-cover" />
+        <img src="/Curamind_logo.png" alt="Curamind Logo" className="h-full w-full object-cover" />
       </div>
       {/* Remove the spacer div and use Tailwind margin instead */}
       <span className={`ml-3 text-xl font-bold ${useColor

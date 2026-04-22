@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
 import { signOut } from "firebase/auth";
-import CuraMind_logo from "../assets/Curamind_logo.jpg";
+
 
 const Navigation = () => {
   const location = useLocation();
@@ -62,7 +62,7 @@ const Navigation = () => {
         >
           <div className="h-10 w-10 rounded-full overflow-hidden border-2 border-violet-100 group-hover:border-violet-200 transition-all duration-200 shadow-sm">
             <img
-              src={CuraMind_logo}
+              src="/Curamind_logo.png"
               alt="Curamind"
               className="h-full w-full object-cover"
             />

@@ -46,13 +46,26 @@ export default function MedicationsPage() {
 
   const fetchMeds = async () => {
     setLoading(true);
-    const { data:{ session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.from('medications').select('*').eq('user_id', session.user.id).eq('is_active', true).order('created_at', { ascending: false });
-    setMeds(data || []);
-    setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      // Removed .eq('is_active', true) to prevent PGRST204 errors
+      const { data, error } = await supabase
+        .from('medications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.warn('⚠️ [Medications] Fetch error:', error.message);
+      }
+      setMeds(data || []);
+    } catch (err) {
+      console.error('Fetch meds system error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
-
   const handleAdd = async () => {
     if (!form.name || !form.dosage) return;
 
@@ -61,28 +74,76 @@ export default function MedicationsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase.from('medications').insert([{
-        ...form,
-        user_id: session.user.id,
-        is_active: true
-      }]);
+      // Ensure start_date is null if empty string to avoid "invalid input syntax for type date"
+      const formattedDate = form.start_date || null;
 
-      if (error) throw error;
+      let retryPayload = {
+        name: form.name,
+        dosage: form.dosage,
+        frequency: form.frequency,
+        instructions: form.instructions,
+        start_date: formattedDate,
+        user_id: session.user.id,
+        is_active: true,
+        time_of_day: form.time_of_day
+      };
+
+      let success = false;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!success && attempts < maxAttempts) {
+        const { error } = await supabase.from('medications').insert([retryPayload]);
+
+        if (!error) {
+          success = true;
+          break;
+        }
+
+        console.warn(`⚠️ [Medications] Attempt ${attempts + 1} failed:`, error.message);
+
+        // Identify the problematic column
+        let columnToRemove = null;
+        if (error.message?.includes('is_active')) {
+          columnToRemove = 'is_active';
+        } else if (error.message?.includes('time_of_day')) {
+          columnToRemove = 'time_of_day';
+        }
+
+        if (columnToRemove) {
+          delete retryPayload[columnToRemove];
+          attempts++;
+        } else {
+          // If error is not about a missing column, stop and throw
+          throw error;
+        }
+      }
+
+      if (!success) throw new Error('Max retry attempts reached for medications.');
 
       setShowAdd(false);
       setForm({ name: '', dosage: '', frequency: 'daily', time_of_day: 'morning', instructions: '', start_date: '' });
       await fetchMeds();
     } catch (err) {
       console.error('Add medication error:', err);
-      alert('Could not save medication.');
+      alert('Could not save medication. Please check if all fields are correct.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    await supabase.from('medications').update({ is_active: false }).eq('id', id);
-    await fetchMeds();
+    try {
+      setSaving(true);
+      const { error } = await supabase.from('medications').delete().eq('id', id);
+      if (error) throw error;
+      await fetchMeds();
+    } catch (err) {
+      console.error('Delete medication error:', err);
+      alert('Could not remove medication. This might be due to a database permission (RLS) issue.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filtered = meds.filter(m => m.name?.toLowerCase().includes(search.toLowerCase()));

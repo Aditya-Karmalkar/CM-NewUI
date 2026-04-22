@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { sendHealthChatMessage, transcribeVoiceToText, AVAILABLE_MODELS } from '../../../services/bytezService';
+import { supabase } from '../../../supabase';
 import { auth } from '../../../firebase';
 import ConsultationPrompt from '../../chat/ConsultationPrompt';
 import UniqueLoading from '../../ui/morph-loading';
@@ -21,10 +22,10 @@ const T3         = '#a0a0a0';
 const DEFAULT_MODEL = 'Mistral Small (Direct)';
 
 const QUICK = [
-  "What are symptoms of high blood pressure?",
-  "What's a healthy diet for diabetes?",
-  "How much sleep do adults need?",
-  "When should I see a doctor?",
+  "Check my latest BP reading",
+  "Is my heart rate normal?",
+  "Analyze my health history",
+  "Indian diet for energy",
 ];
 
 const getInitialMessages = () => ([{
@@ -48,25 +49,15 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  const renderFormattedText = (text) => {
-    if (!text) return null;
-    let html = text
-      .replace(/</g, "&lt;").replace(/>/g, "&gt;") // basic sanitize
-      .replace(/###\s*(.*)/g, '<br/><strong style="display:block; margin-top:10px; margin-bottom:4px; font-size:14px; color:#111827;">$1</strong>') // headers
-      .replace(/\*\*(.*?)\*\*/g, '<strong style="color: #111827;">$1</strong>') // bold
-      .replace(/\*(.*?)\*/g, '<em>$1</em>') // italic
-      .replace(/\n-\s*(.*?)/g, '<br/><span style="margin-left:8px; color:#374151">• $1</span>') // lists
-      .replace(/\n/g, '<br/>'); // newlines
-    
-    return <span dangerouslySetInnerHTML={{ __html: html }} />;
-  };
+
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior:'smooth' }); }, [messages]);
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(u => {
-      if (u) {
-        setUserId(u.uid);
-        const saved = localStorage.getItem(`curamind_chat_${u.uid}`);
+    const fetchSupabaseUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUserId(session.user.id);
+        const saved = localStorage.getItem(`curamind_chat_${session.user.id}`);
         if (saved) {
           const parsed = JSON.parse(saved);
           setSessions(parsed);
@@ -75,6 +66,14 @@ export default function ChatPage() {
             setMessages(parsed[0].messages);
           }
         }
+      }
+    };
+
+    const unsub = auth.onAuthStateChanged(u => {
+      if (u) {
+        fetchSupabaseUser();
+      } else {
+        setUserId(null);
       }
     });
     return unsub;
@@ -146,10 +145,13 @@ export default function ChatPage() {
         .map(m => ({ role: m.role || (m.type === 'bot' ? 'assistant' : 'user'), content: m.content }));
       history.push({ role: 'user', content: msg });
 
-      const { output, consultationInfo } = await sendHealthChatMessage(history, selectedModel, userId);
+      const response = await sendHealthChatMessage(history, selectedModel, userId);
+      console.log('ChatPage - Received response:', response);
+      const { output, consultationInfo } = response;
       
       setMessages(prev => {
-        const updated = prev.map(m => m.id === botId ? { ...m, content: output || 'Sorry, an error occurred.', isStreaming: false, consultationInfo } : m);
+        const contentToSet = output && output.trim().length > 0 ? output : 'Hello! I am here to assist with your health. How can I help?';
+        const updated = prev.map(m => m.id === botId ? { ...m, content: contentToSet, isStreaming: false, consultationInfo } : m);
         setSessions(prevS => {
            const nextState = prevS.map(s => s.id === activeSessionId ? { ...s, messages: updated } : s);
            localStorage.setItem(`curamind_chat_${userId || 'anon'}`, JSON.stringify(nextState));
@@ -261,7 +263,7 @@ export default function ChatPage() {
               messages: messages.map(m => ({
                 id: m.id,
                 sender: m.type === 'bot' ? 'left' : 'right',
-                type: m.consultationInfo ? 'consultation' : 'text',
+                type: m.consultationInfo?.requiresConsultation ? 'consultation' : 'text',
                 content: m.content,
                 loader: { enabled: m.isStreaming, duration: 800 },
                 consultationInfo: m.consultationInfo,
@@ -372,7 +374,7 @@ export default function ChatPage() {
 
             <input
               type="text"
-              placeholder={isRecording ? "Listening..." : "Ask about your health, symptoms, or wellness…"}
+              placeholder={isRecording ? "Listening..." : "How's my BP history? Or ask about any symptoms..."}
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key==='Enter' && !e.shiftKey && send()}

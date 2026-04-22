@@ -1,5 +1,5 @@
 import React from 'react';
-import CuraMind_logo from '../../assets/Curamind_logo.jpg';
+
 
 const WelcomeScreen = ({ onContinue }) => {
   return (
@@ -7,9 +7,9 @@ const WelcomeScreen = ({ onContinue }) => {
       <div className="max-w-lg w-full bg-white rounded-2xl shadow-lg overflow-hidden">
         {/* Header with gradient - updated to violet gradient */}
         <div className="bg-gradient-to-r from-violet-600 to-indigo-700 p-8 flex flex-col items-center">
-          <div className="w-28 h-28 rounded-full bg-white p-1 shadow-xl mb-6 overflow-hidden">
+          <div className="w-28 h-28 rounded-full p-1 shadow-xl mb-6 overflow-hidden">
             <img 
-              src={CuraMind_logo} 
+              src="/Curamind_logo.png" 
               alt="Curamind" 
               className="w-full h-full object-cover rounded-full"
             />

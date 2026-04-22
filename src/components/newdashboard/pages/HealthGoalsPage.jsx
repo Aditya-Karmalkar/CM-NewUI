@@ -27,11 +27,25 @@ export default function HealthGoalsPage() {
 
   const fetchGoals = async () => {
     setLoading(true);
-    const { data:{ session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.from('health_goals').select('*').eq('user_id', session.user.id).eq('is_active', true).order('created_at', { ascending: false });
-    setGoals(data || []);
-    setLoading(false);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      // Removed .eq('is_active', true) to prevent PGRST204 errors
+      const { data, error } = await supabase
+        .from('health_goals')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('⚠️ [HealthGoals] Fetch error:', error.message);
+      }
+      setGoals(data || []);
+    } catch (err) {
+      console.error('Fetch goals system error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -42,15 +56,54 @@ export default function HealthGoalsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase.from('health_goals').insert([{
-        ...form,
-        user_id: session.user.id,
-        is_active: true,
+      let retryPayload = {
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        unit: form.unit,
         target_value: Number(form.target_value),
-        current_value: Number(form.current_value) || 0
-      }]);
+        current_value: Number(form.current_value) || 0,
+        deadline: form.deadline || null,
+        user_id: session.user.id,
+        is_active: true
+      };
 
-      if (error) throw error;
+      let success = false;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!success && attempts < maxAttempts) {
+        const { error } = await supabase.from('health_goals').insert([retryPayload]);
+        
+        if (!error) {
+          success = true;
+          break;
+        }
+
+        console.warn(`⚠️ [HealthGoals] Attempt ${attempts + 1} failed:`, error.message);
+        
+        // Identify the problematic column
+        let columnToRemove = null;
+        if (error.message?.includes('is_active')) columnToRemove = 'is_active';
+        else if (error.message?.includes('unit')) columnToRemove = 'unit';
+        else if (error.message?.includes('deadline')) {
+          columnToRemove = 'deadline';
+          // Move info to description if stripping
+          if (retryPayload.deadline) {
+            retryPayload.description = `${retryPayload.description || ''} (Target Date: ${new Date(retryPayload.deadline).toLocaleDateString()})`.trim();
+          }
+        }
+        
+        if (columnToRemove) {
+          delete retryPayload[columnToRemove];
+          attempts++;
+        } else {
+          // If error is not about a missing column, stop and throw
+          throw error;
+        }
+      }
+
+      if (!success) throw new Error('Max retry attempts reached for health goals.');
 
       setShowAdd(false);
       setForm({ title: '', description: '', category: 'fitness', target_value: '', current_value: '', unit: '', deadline: '' });
@@ -66,6 +119,20 @@ export default function HealthGoalsPage() {
   const updateProgress = async (id, newVal) => {
     await supabase.from('health_goals').update({ current_value: Number(newVal) }).eq('id', id);
     await fetchGoals();
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      setSaving(true);
+      const { error } = await supabase.from('health_goals').delete().eq('id', id);
+      if (error) throw error;
+      await fetchGoals();
+    } catch (err) {
+      console.error('Delete goal error:', err);
+      alert('Could not remove goal. This might be due to a database permission (RLS) issue.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const CATS = { fitness:'🏃', nutrition:'🥗', sleep:'😴', weight:'⚖️', mental:'🧠', medication:'💊', other:'🎯' };
@@ -110,7 +177,16 @@ export default function HealthGoalsPage() {
                     <div style={{ fontSize:13, fontWeight:600, color:T1 }}>{goal.title}</div>
                     <span style={{ fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:99, background:BLUE_FAINT, color:BLUE, textTransform:'capitalize' }}>{goal.category}</span>
                   </div>
-                  <div style={{ fontFamily:"'Poppins',sans-serif", fontSize:18, fontWeight:700, color:color }}>{p}%</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div style={{ fontFamily:"'Poppins',sans-serif", fontSize:18, fontWeight:700, color:color }}>{p}%</div>
+                    <button 
+                      onClick={() => { if(window.confirm('Delete this goal permanentely?')) handleDelete(goal.id); }}
+                      style={{ border:'none', background:'none', color:T3, cursor:'pointer', padding:5, display:'flex' }}
+                      title="Delete Goal"
+                    >
+                      <svg viewBox="0 0 24 24" style={{width:14,height:14,stroke:'currentColor',fill:'none',strokeWidth:2}}><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+                    </button>
+                  </div>
                 </div>
 
                 {goal.description && <p style={{ fontSize:11, color:T2, marginBottom:12, lineHeight:1.5 }}>{goal.description}</p>}

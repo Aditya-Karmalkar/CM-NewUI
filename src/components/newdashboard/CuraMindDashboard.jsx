@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Curamind_logo from '../../assets/Curamind_logo.jpg';
 
 // ─── New themed pages ─────────────────────────────────────
 import ChatPage from './pages/ChatPage';
@@ -126,7 +125,7 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut, collapsed }) => {
       {/* Logo */}
       <div style={{ padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${BDR}`, flexShrink: 0 }}>
         <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-           <img src={Curamind_logo} alt="CuraMind Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+           <img src="/Curamind_logo.png" alt="CuraMind Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 16, fontWeight: 700, color: T1, letterSpacing: '-0.4px', whiteSpace: 'nowrap' }}>
           Cura<span style={{ color: BLUE }}>Mind</span>
@@ -586,28 +585,44 @@ const CuraMindDashboard = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { navigate('/signin'); return; }
         setUser(session.user);
+        const userId = session.user.id;
 
-        const [metricsRes, medsRes, apptsRes, goalsRes] = await Promise.all([
-          supabase.from('health_metrics').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(30),
-          supabase.from('medications').select('*').eq('user_id', session.user.id).eq('is_active', true),
-          supabase.from('appointments').select('*').eq('user_id', session.user.id).gte('appointment_date', new Date().toISOString()).order('appointment_date', { ascending: true }).limit(10),
-          supabase.from('health_goals').select('*').eq('user_id', session.user.id).eq('is_active', true),
+        // Helper to fetch individual tables safely
+        const fetchSafe = async (table, query) => {
+          try {
+            const { data, error } = await query;
+            if (error) {
+              console.warn(`⚠️ [Dashboard] Fetch failed for ${table}:`, error.message);
+              return null;
+            }
+            return data;
+          } catch (e) {
+            console.error(`System error fetching ${table}:`, e);
+            return null;
+          }
+        };
+
+        const [metricsData, medsData, apptsData, goalsData] = await Promise.all([
+          fetchSafe('health_metrics', supabase.from('health_metrics').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(30)),
+          fetchSafe('medications', supabase.from('medications').select('*').eq('user_id', userId)), // Removed is_active
+          fetchSafe('appointments', supabase.from('appointments').select('*').eq('user_id', userId).gte('appointment_date', new Date().toISOString()).order('appointment_date', { ascending: true }).limit(10)),
+          fetchSafe('health_goals', supabase.from('health_goals').select('*').eq('user_id', userId)), // Removed is_active
         ]);
 
-        if (metricsRes.data) {
+        if (metricsData) {
           setHealthMetrics({
-            bloodPressure: metricsRes.data.filter(m => m.metric_type === 'blood_pressure'),
-            heartRate: metricsRes.data.filter(m => m.metric_type === 'heart_rate'),
-            bloodGlucose: metricsRes.data.filter(m => m.metric_type === 'blood_glucose'),
-            weight: metricsRes.data.filter(m => m.metric_type === 'weight'),
-            sleep: metricsRes.data.filter(m => m.metric_type === 'sleep'),
+            bloodPressure: metricsData.filter(m => m.metric_type === 'blood_pressure'),
+            heartRate: metricsData.filter(m => m.metric_type === 'heart_rate'),
+            bloodGlucose: metricsData.filter(m => m.metric_type === 'blood_glucose'),
+            weight: metricsData.filter(m => m.metric_type === 'weight'),
+            sleep: metricsData.filter(m => m.metric_type === 'sleep'),
           });
         }
-        if (medsRes.data) setMedications(medsRes.data);
-        if (apptsRes.data) setUpcomingAppointments(apptsRes.data);
-        if (goalsRes.data) setHealthGoals(goalsRes.data);
+        if (medsData) setMedications(medsData);
+        if (apptsData) setUpcomingAppointments(apptsData);
+        if (goalsData) setHealthGoals(goalsData);
       } catch (err) {
-        console.error('Dashboard fetch error:', err);
+        console.error('Critical dashboard fetch failure:', err);
       } finally {
         setLoading(false);
       }

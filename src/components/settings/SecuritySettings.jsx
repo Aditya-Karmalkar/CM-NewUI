@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { supabase } from '../../supabase';
 
 const SecuritySettings = () => {
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordStrength, setPasswordStrength] = useState(0);
@@ -79,7 +78,6 @@ const SecuritySettings = () => {
         setMessage({ type: 'error', text: error.message });
       } else {
         setMessage({ type: 'success', text: 'Password updated successfully' });
-        setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }

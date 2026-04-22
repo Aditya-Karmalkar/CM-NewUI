@@ -1,6 +1,5 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import CuraMind_logo from "../../assets/Curamind_logo.jpg";
 
 const Footer = () => {
   const year = new Date().getFullYear();
@@ -32,8 +31,8 @@ const Footer = () => {
             {/* L: Brand Block */}
             <div style={{ flex: "0 0 280px" }}>
               <Link to="/" style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none", marginBottom: "24px" }}>
-                <div style={{ backgroundColor: "#0068ff", overflow: "hidden", width: "40px", height: "40px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                   <img src={CuraMind_logo} alt="CuraMind Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ overflow: "hidden", width: "40px", height: "40px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                   <img src="/Curamind_logo.png" alt="CuraMind Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 </div>
                 <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: "19px", color: "#fff", letterSpacing: "-0.01em" }}>
                   CuraMind

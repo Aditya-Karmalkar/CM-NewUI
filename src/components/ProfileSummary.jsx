@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import defaultAvatar from "../assets/default-avatar.jpeg";
 import { supabase } from "../supabase";
 import { useToast } from "../context/ToastContext";
-import curamind_logo from "../assets/Curamind_logo.jpg";
 
 const ProfilePhotoSection = ({ profileImage, setProfileImage }) => {
   const fileInputRef = useRef(null);
@@ -35,6 +34,7 @@ const ProfilePhotoSection = ({ profileImage, setProfileImage }) => {
           alt="Profile"
           className="w-full h-full object-cover"
         />
+        <img src="/Curamind_logo.png" alt="Curamind Logo" className="w-10 h-10 object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-violet-900/80 to-indigo-600/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
           <div className="text-white text-sm font-medium px-4 py-2 rounded-full bg-white/20 backdrop-blur-md shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 border border-white/30">
             Change Photo
@@ -748,7 +748,7 @@ const ProfileSummary = () => {
           <div className="flex justify-center">
             <img
               className="h-12 w-auto rounded-full p-1 bg-white"
-              src="/assets/curamind_logo.jpg"
+              src="/Curamind_logo.png"
               alt="CuraMind"
             />
           </div>

@@ -270,7 +270,7 @@ const MessageBubble = React.memo<MessageBubbleProps>(({
                 )}
                 <img
                   src={message.content}
-                  alt="Chat image"
+                  alt="Message content"
                   className={`rounded-xl max-h-full max-w-full h-auto object-cover ${!imageLoaded ? 'hidden' : ''}`}
                   onLoad={handleImageLoad}
                 />
@@ -329,8 +329,6 @@ const MessageWrapper = React.memo<MessageWrapperProps>(({
   const chatStyle = isLeft ? uiConfig.leftChat! : uiConfig.rightChat!;
 
   const isContinuation = previousMessage?.sender === message.sender;
-  const nextMessageSameSender = nextMessage?.sender === message.sender;
-  const shouldShowAvatar = !nextMessageSameSender || !isNextVisible;
 
   useEffect(() => {
     if (!previousMessageComplete) return;

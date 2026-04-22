@@ -31,23 +31,37 @@ export default function EmergencyProfilePage() {
 
   const fetchProfile = async () => {
     setLoading(true);
-    const { data:{ session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const { data } = await supabase.from('emergency_profiles').select('*').eq('user_id', session.user.id).single();
-    if (data) {
-      setProfile(data);
-      setForm({
-        blood_type: data.blood_type || '',
-        allergies: Array.isArray(data.allergies) ? data.allergies.join(', ') : data.allergies || '',
-        medications: Array.isArray(data.medications) ? data.medications.join(', ') : data.medications || '',
-        medical_conditions: Array.isArray(data.medical_conditions) ? data.medical_conditions.join(', ') : data.medical_conditions || '',
-        emergency_contact_name: data.emergency_contacts?.[0]?.name || '',
-        emergency_contact_phone: data.emergency_contacts?.[0]?.phone || data.emergency_contacts?.[0]?.phoneNumber || '',
-        emergency_contact_relation: data.emergency_contacts?.[0]?.relationship || '',
-        notes: data.notes || '',
-      });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      // Use standard fetch without .single() to avoid 406 and other restrictive header errors
+      const { data, error } = await supabase
+        .from('emergency_profiles')
+        .select('*')
+        .eq('user_id', session.user.id);
+
+      if (error) {
+        console.warn('⚠️ [EmergencyProfile] Fetch error:', error.message);
+      } else if (data && data.length > 0) {
+        const profileData = data[0];
+        setProfile(profileData);
+        setForm({
+          blood_type: profileData.blood_type || '',
+          allergies: Array.isArray(profileData.allergies) ? profileData.allergies.join(', ') : profileData.allergies || '',
+          medications: Array.isArray(profileData.medications) ? profileData.medications.join(', ') : profileData.medications || '',
+          medical_conditions: Array.isArray(profileData.medical_conditions) ? profileData.medical_conditions.join(', ') : profileData.medical_conditions || '',
+          emergency_contact_name: profileData.emergency_contacts?.[0]?.name || '',
+          emergency_contact_phone: profileData.emergency_contacts?.[0]?.phone || profileData.emergency_contacts?.[0]?.phoneNumber || '',
+          emergency_contact_relation: profileData.emergency_contacts?.[0]?.relationship || '',
+          notes: profileData.notes || '',
+        });
+      }
+    } catch (err) {
+      console.error('System error fetching emergency profile:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSave = async () => {

@@ -58,8 +58,9 @@ export const ensureUserRecord = async (user) => {
 // Create new user record in users table
 export const createUserRecord = async (user, metadata = {}) => {
   try {
-      // Auto-assign admin role for root system accounts
-      const isAdminEmail = ['admin@curamind.com', 'system.admin@curamind.com', 'root@curamind.com'].includes(user.email);
+      // Auto-assign admin role for root system accounts from environment variables
+      const adminEmails = (process.env.REACT_APP_ADMIN_EMAILS || 'admin@curamind.com,system.admin@curamind.com,root@curamind.com').split(',').map(e => e.trim());
+      const isAdminEmail = adminEmails.includes(user.email);
       const userType = isAdminEmail ? 'admin' : (user.user_metadata?.user_type || metadata.user_type || 'patient');
 
       const { error } = await supabase

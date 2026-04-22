@@ -181,7 +181,7 @@ export const handleOAuthSignIn = async (providerType = 'google') => {
 
     // Sync Firebase user data to Supabase
     console.log('🔄 Syncing Firebase user to Supabase...');
-    const supabaseAuth = await syncOAuthUserToSupabase(firebaseUser);
+    await syncOAuthUserToSupabase(firebaseUser);
 
     // Create Supabase session token
     console.log('🔐 Creating Supabase session...');
@@ -204,7 +204,6 @@ export const handleOAuthSignIn = async (providerType = 'google') => {
 };
 
 // Rate limiting state management
-let lastSignInAttempt = 0;
 const RATE_LIMIT_COOLDOWN = 60000; // 60 seconds
 let rateLimitEndTime = 0;
 
@@ -260,9 +259,6 @@ export const handleOAuthSignInWithFallback = async (providerType = 'google') => 
       provider = facebookProvider;
     }
 
-    // Update last attempt time
-    lastSignInAttempt = Date.now();
-
     try {
       // Try popup first
       result = await signInWithPopup(auth, provider);
@@ -303,7 +299,7 @@ export const handleOAuthSignInWithFallback = async (providerType = 'google') => 
 
     // Sync to Supabase
     console.log('🔄 DEBUG: Syncing to Supabase...');
-    const supabaseAuth = await syncOAuthUserToSupabase(firebaseUser);
+    await syncOAuthUserToSupabase(firebaseUser);
 
     // Create Supabase session - handle OAuth without email confirmation
     console.log('🔐 DEBUG: Creating Supabase session...');

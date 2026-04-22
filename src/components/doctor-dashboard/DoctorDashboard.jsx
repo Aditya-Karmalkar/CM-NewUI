@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Curamind_logo from '../../assets/Curamind_logo.jpg';
+
 import UniqueLoading from '../ui/morph-loading';
 
 // --- Doctor Pages ---
@@ -79,7 +79,7 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut, collapsed }) => {
       transition: 'width 0.25s ease, min-width 0.25s ease',
     }} data-lenis-prevent>
       <div style={{ padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${BDR}`, flexShrink: 0 }}>
-        <img src={Curamind_logo} alt="CuraMind Logo" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
+        <img src="/Curamind_logo.png" alt="CuraMind Logo" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
         <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 16, fontWeight: 700, color: T1, whiteSpace: 'nowrap' }}>
           Cura<span style={{ color: BLUE }}>Mind</span> <span style={{ fontSize: 10, fontWeight: 500, color: BLUE, background: BLUE_FAINT, padding: '2px 6px', borderRadius: 6, marginLeft: 4 }}>DR</span>
         </div>

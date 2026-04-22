@@ -48,15 +48,34 @@ const RoleBasedDashboard = ({ patientComponent, doctorComponent, adminComponent 
     const checkRole = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const userType = session.user.user_metadata?.user_type;
-        if (userType) {
-          setRole(userType);
-          setLoading(false);
-          return;
+        // First try to get from metadata (much faster and avoids schema issues)
+        let userType = session.user.user_metadata?.user_type;
+        
+        if (!userType) {
+          try {
+            const { data, error } = await supabase
+              .from('users')
+              .select('user_type')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (error) {
+              console.warn('⚠️ [RoleCheck] Could not fetch user_type from database (check if column exists). Defaulting to patient.', error.message);
+              userType = 'patient';
+            } else if (data) {
+              userType = data.user_type;
+            }
+          } catch (err) {
+            console.error('Role check system error:', err);
+            userType = 'patient';
+          }
         }
 
-        const { data } = await supabase.from('users').select('user_type').eq('id', session.user.id).single();
-        if (data) setRole(data.user_type);
+        if (userType) {
+          setRole(userType.toLowerCase()); // Standardize to lowercase for comparison
+        } else {
+          setRole('patient');
+        }
       }
       setLoading(false);
     };
@@ -64,8 +83,10 @@ const RoleBasedDashboard = ({ patientComponent, doctorComponent, adminComponent 
   }, []);
 
   if (loading) return null;
-  if (role === 'Admin') return <>{adminComponent}</>;
-  if (role === 'Doctor') return <>{doctorComponent}</>;
+  
+  const normalizedRole = role?.toLowerCase();
+  if (normalizedRole === 'admin') return <>{adminComponent}</>;
+  if (normalizedRole === 'doctor') return <>{doctorComponent}</>;
   return <>{patientComponent}</>;
 };
 

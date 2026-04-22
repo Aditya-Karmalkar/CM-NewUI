@@ -7,6 +7,12 @@ import { jsPDF } from 'jspdf';
 import { supabase } from '../../supabase';
 import { useNavigate } from 'react-router-dom';
 
+// Helper function to estimate data size from documents
+const estimateSizeFromData = (data) => {
+  if (!data) return 0;
+  return JSON.stringify(data).length;
+};
+
 const DataSettings = () => {
   // Use settings from context instead of local state
   const { settings, updateSettings } = useSettings();
@@ -41,7 +47,7 @@ const DataSettings = () => {
   // Load real data usage statistics when component mounts
   useEffect(() => {
     fetchDataUsageStats();
-  }, []);
+  }, [fetchDataUsageStats]);
 
   // Update local state when settings change
   useEffect(() => {
@@ -49,12 +55,6 @@ const DataSettings = () => {
       setDataOptions(settings.data);
     }
   }, [settings.data]);
-
-  // Helper function to estimate data size from documents
-  const estimateSizeFromData = (data) => {
-    if (!data) return 0;
-    return JSON.stringify(data).length;
-  };
 
   const handleChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
@@ -133,7 +133,7 @@ const DataSettings = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, generatePDFReport]);
 
   const handleImport = useCallback(async (e) => {
     e.preventDefault();
@@ -204,11 +204,11 @@ const DataSettings = () => {
     }
   }, [dataOptions, addToast]);
 
-  const generatePDFReport = (data) => {
+  const generatePDFReport = useCallback((data) => {
     // PDF generation logic (placeholder)
     console.log('Generating PDF report...', data);
     addToast('PDF report generation not implemented yet', 'info');
-  };
+  }, [addToast]);
 
   // Fetch real data usage statistics from Supabase
   const fetchDataUsageStats = useCallback(async () => {
@@ -283,258 +283,7 @@ const DataSettings = () => {
     }
   }, [addToast]);
 
-  const importJsonData = async (content) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('You must be signed in to import data');
-    
-    const userId = user.id;
-    const data = JSON.parse(content);
-    
-    // Process and import different types of data
-    if (data.healthMetrics && data.healthMetrics.length > 0) {
-      const healthMetrics = data.healthMetrics.map(metric => ({
-        ...metric,
-        user_id: userId,
-        timestamp: new Date(metric.timestamp).toISOString(),
-        created_at: new Date().toISOString()
-      }));
-      
-      const { error } = await supabase
-        .from('health_metrics')
-        .insert(healthMetrics);
-      
-      if (error) throw error;
-    }
-    
-    // Add other data types as needed
-  };
 
-  const importCsvData = async (content) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('You must be signed in to import data');
-    
-    const userId = user.id;
-    const results = Papa.parse(content, { header: true });
-    
-    if (results.errors.length > 0) {
-      throw new Error(`CSV parsing error: ${results.errors[0].message}`);
-    }
-    
-    // Try to determine data type from CSV structure
-    const firstRow = results.data[0];
-    if (!firstRow) throw new Error('CSV file is empty');
-    
-    // Process based on detected data type
-    if ('systolic' in firstRow || 'diastolic' in firstRow) {
-      // Looks like blood pressure data
-      const healthMetrics = results.data.filter(row => row.date).map(row => ({
-        user_id: userId,
-        type: 'bloodPressure',
-        date: new Date(row.date).toISOString(),
-        systolic: parseInt(row.systolic) || 0,
-        diastolic: parseInt(row.diastolic) || 0,
-        created_at: new Date().toISOString()
-      }));
-      
-      if (healthMetrics.length > 0) {
-        const { error } = await supabase.from('health_metrics').insert(healthMetrics);
-        if (error) throw error;
-      }
-    } else if ('value' in firstRow && 'metric' in firstRow) {
-      // Generic health metric
-      const healthMetrics = results.data.filter(row => row.date && row.metric).map(row => ({
-        user_id: userId,
-        type: row.metric.toLowerCase(),
-        date: new Date(row.date).toISOString(),
-        value: parseFloat(row.value) || 0,
-        created_at: new Date().toISOString()
-      }));
-      
-      if (healthMetrics.length > 0) {
-        const { error } = await supabase.from('health_metrics').insert(healthMetrics);
-        if (error) throw error;
-      }
-    } else if ('medication' in firstRow) {
-      // Medication data
-      const medications = results.data.filter(row => row.medication).map(row => ({
-        user_id: userId,
-        name: row.medication,
-        dosage: row.dosage || '',
-        frequency: row.frequency || '',
-        start_date: new Date(row.startDate || row.date).toISOString(),
-        created_at: new Date().toISOString()
-      }));
-      
-      if (medications.length > 0) {
-        const { error } = await supabase.from('medications').insert(medications);
-        if (error) throw error;
-      }
-    } else if ('appointment' in firstRow) {
-      // Appointment data
-      const appointments = results.data.filter(row => row.appointment && row.date).map(row => ({
-        user_id: userId,
-        title: row.appointment,
-        date: new Date(row.date).toISOString(),
-        time: row.time || '',
-        description: row.description || '',
-        created_at: new Date().toISOString()
-      }));
-      
-      if (appointments.length > 0) {
-        const { error } = await supabase.from('appointments').insert(appointments);
-        if (error) throw error;
-      }
-    } else {
-      throw new Error('Unable to determine data type from CSV structure');
-    }
-  };
-
-  const exportAsCsv = (name, data) => {
-    if (!data || data.length === 0) return;
-    
-    // Convert to CSV
-    const csv = Papa.unparse(data);
-    
-    // Create blob and save
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, `CuraMind-${name}-${new Date().toISOString().split('T')[0]}.csv`);
-  };
-
-  // Export data as PDF
-  const exportAsPdf = async (data) => {
-    const pdf = new jsPDF();
-    let yPos = 20;
-    
-    // Add title
-    pdf.setFontSize(18);
-    pdf.text('CuraMind Health Data Export', 105, yPos, { align: 'center' });
-    yPos += 10;
-    
-    // Add date
-    pdf.setFontSize(12);
-    pdf.text(`Export Date: ${new Date().toLocaleDateString()}`, 105, yPos, { align: 'center' });
-    yPos += 20;
-    
-    // Add health metrics
-    if (data.healthMetrics && data.healthMetrics.length > 0) {
-      pdf.setFontSize(14);
-      pdf.text('Health Metrics', 20, yPos);
-      yPos += 10;
-      
-      // Only include first 50 records to avoid PDF getting too large
-      const limitedMetrics = data.healthMetrics.slice(0, 50);
-      
-      pdf.setFontSize(10);
-      for (const metric of limitedMetrics) {
-        let metricText = `Date: ${new Date(metric.date).toLocaleDateString()} | `;
-        
-        if (metric.type === 'bloodPressure') {
-          metricText += `Type: Blood Pressure | Systolic: ${metric.systolic} | Diastolic: ${metric.diastolic}`;
-        } else {
-          metricText += `Type: ${metric.type} | Value: ${metric.value || metric.hours || 'N/A'}`;
-        }
-        
-        pdf.text(metricText, 20, yPos);
-        yPos += 6;
-        
-        // Add page if needed
-        if (yPos > 270) {
-          pdf.addPage();
-          yPos = 20;
-        }
-      }
-      
-      if (data.healthMetrics.length > 50) {
-        pdf.text(`Note: Showing 50 of ${data.healthMetrics.length} health metrics.`, 20, yPos);
-        yPos += 10;
-      }
-    }
-    
-    // Similar sections for medications and appointments would be added here
-    
-    pdf.save(`CuraMind-health-report-${new Date().toISOString().split('T')[0]}.pdf`);
-  };
-
-  // Handle cloud sync
-  const handleCloudSync = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      addToast('You must be signed in to sync data', 'error');
-      return;
-    }
-    
-    try {
-      const userId = user.id;
-      
-      // Prepare data for backup
-      const { data: healthMetrics, error: healthError } = await supabase
-        .from('health_metrics')
-        .select('*')
-        .eq('user_id', userId);
-      
-      const { data: medications, error: medsError } = await supabase
-        .from('medications')
-        .select('*')
-        .eq('user_id', userId);
-      
-      const { data: appointments, error: apptsError } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('user_id', userId);
-      
-      if (healthError || medsError || apptsError) {
-        throw new Error('Error fetching data for backup');
-      }
-      
-      const backupData = {
-        healthMetrics: healthMetrics || [],
-        medications: medications || [],
-        appointments: appointments || [],
-        timestamp: new Date().toISOString()
-      };
-      
-      // Create backup file in Supabase Storage
-      const backupBlob = new Blob([JSON.stringify(backupData)], { type: 'application/json' });
-      const fileName = `backups/${userId}/curamind-backup-${new Date().toISOString()}.json`;
-      
-      const { data, error } = await supabase.storage
-        .from('user-data')
-        .upload(fileName, backupBlob, {
-          contentType: 'application/json',
-          upsert: false
-        });
-      
-      if (error) throw error;
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('user-data')
-        .getPublicUrl(fileName);
-      
-      // Save backup reference to user's profile
-      const { error: backupError } = await supabase
-        .from('user_backups')
-        .insert({
-          user_id: userId,
-          file_url: publicUrl,
-          file_path: fileName,
-          timestamp: new Date().toISOString(),
-          data_count: {
-            health_metrics: backupData.healthMetrics.length,
-            medications: backupData.medications.length,
-            appointments: backupData.appointments.length
-          }
-        });
-      
-      if (backupError) throw backupError;
-      
-      setSyncStatus('synced');
-      addToast('Data synchronized with cloud storage!', 'success');
-    } catch (error) {
-      console.error('Sync error:', error);
-      setSyncStatus('error');
-      addToast(`Sync failed: ${error.message}`, 'error');
-    }
-  };
 
   // Handle data deletion
   const handleDeleteData = async (dataType) => {

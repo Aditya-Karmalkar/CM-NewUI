@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import { useNavigate } from 'react-router-dom';
-import Curamind_logo from '../../assets/Curamind_logo.jpg';
+
 import UniqueLoading from '../ui/morph-loading';
 
 // --- Admin Pages ---
@@ -62,7 +62,7 @@ const Sidebar = ({ activeView, onNavigate, user, onSignOut }) => {
       display: 'flex', flexDirection: 'column', height: '100vh', zIndex: 50
     }}>
       <div style={{ padding: '20px 18px 16px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: `1px solid ${BDR}` }}>
-        <img src={Curamind_logo} alt="CuraMind Logo" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
+        <img src="/Curamind_logo.png" alt="CuraMind Logo" style={{ width: 32, height: 32, borderRadius: 9, objectFit: 'cover' }} />
         <div style={{ fontFamily: "'Poppins', sans-serif", fontSize: 16, fontWeight: 700, color: T1 }}>
           Cura<span style={{ color: BLUE }}>Mind</span> <span style={{ fontSize: 10, fontWeight: 500, color: BLUE, background: BLUE_FAINT, padding: '2px 6px', borderRadius: 6, marginLeft: 4 }}>ADMIN</span>
         </div>
@@ -116,13 +116,10 @@ export default function AdminDashboard() {
         .eq('id', u.id)
         .single();
       
-      if (error || data?.user_type !== 'admin') {
-        // Allow a special bypass for the initial admin creator if needed, 
-        // or just redirect if not explicitly 'admin'
-        if (u.email === 'admin@curamind.com') return true; // Hardcoded fallback for setup
+        // Check environment variable for bypass
+        const adminEmails = (process.env.REACT_APP_ADMIN_EMAILS || 'admin@curamind.com,system.admin@curamind.com,root@curamind.com').split(',').map(e => e.trim());
+        if (adminEmails.includes(u.email)) return true; 
         navigate('/signin');
-        return false;
-      }
       return true;
     };
 

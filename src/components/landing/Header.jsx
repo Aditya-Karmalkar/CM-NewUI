@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { auth } from "../../firebase";
 import { motion, useScroll, useSpring } from "framer-motion";
-import CuraMind_logo from "../../assets/Curamind_logo.jpg";
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -80,8 +79,8 @@ const Header = () => {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5" aria-label="Curamind homepage">
-            <div style={{ backgroundColor: "#0068ff", overflow: "hidden", width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-               <img src={CuraMind_logo} alt="CuraMind Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ overflow: "hidden", width: "36px", height: "36px", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+               <img src="/Curamind_logo.png" alt="CuraMind Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: "18px", color: "#111", letterSpacing: "-0.02em" }}>
               CuraMind

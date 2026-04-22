@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../../supabase';
 import SimpleLeafletMap from '../../appointments/SimpleLeafletMap';
 
@@ -34,26 +34,28 @@ export default function AppointmentsPage({ appointmentData }) {
   const [form, setForm] = useState({ doctor_name:'', appointment_type:'', appointment_date:'', notes:'', location:'', status:'pending' });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchAppointments(); }, []);
-  useEffect(() => { 
-    if (appointmentData) { 
-      setForm({
-        ...form, 
-        appointment_type: appointmentData.appointment_type || appointmentData.preSelectedSpecialty || form.appointment_type, 
-        notes: appointmentData.notes || appointmentData.autoFillNotes || form.notes
-      }); 
-      setShowAdd(true); 
-    } 
-  }, [appointmentData]);
-
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     setLoading(true);
-    const { data:{ session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     const { data } = await supabase.from('appointments').select('*').eq('user_id', session.user.id).order('appointment_date', { ascending: true });
     setAppointments(data || []);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
+  useEffect(() => {
+    if (appointmentData) {
+      setForm(prev => ({
+        ...prev,
+        appointment_type: appointmentData.appointment_type || appointmentData.preSelectedSpecialty || prev.appointment_type,
+        notes: appointmentData.notes || appointmentData.autoFillNotes || prev.notes
+      }));
+      setShowAdd(true);
+    }
+  }, [appointmentData]);
+
+
 
   const handleAdd = async () => {
     if (!form.doctor_name || !form.appointment_date) return;
@@ -63,13 +65,55 @@ export default function AppointmentsPage({ appointmentData }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const { error } = await supabase.from('appointments').insert({
-        ...form,
+      let retryPayload = {
+        title: form.appointment_type, // Map appointment_type to title to satisfy not-null constraint
+        doctor_name: form.doctor_name,
+        appointment_type: form.appointment_type,
+        appointment_date: form.appointment_date,
+        notes: form.notes,
+        location: form.location,
+        status: form.status,
         user_id: session.user.id,
         created_at: new Date().toISOString()
-      });
+      };
 
-      if (error) throw error;
+      let success = false;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!success && attempts < maxAttempts) {
+        const { error } = await supabase.from('appointments').insert([retryPayload]);
+
+        if (!error) {
+          success = true;
+          break;
+        }
+
+        console.warn(`⚠️ [Appointments] Attempt ${attempts + 1} failed:`, error.message);
+
+        // Identify the problematic column
+        let columnToRemove = null;
+        if (error.message?.includes('doctor_name')) {
+          columnToRemove = 'doctor_name';
+          retryPayload.notes = `Doctor: ${retryPayload.doctor_name}\n${retryPayload.notes || ''}`;
+        } else if (error.message?.includes('status')) {
+          columnToRemove = 'status';
+        } else if (error.message?.includes('title')) {
+          columnToRemove = 'title';
+        } else if (error.message?.includes('appointment_type')) {
+          columnToRemove = 'appointment_type';
+        }
+
+        if (columnToRemove) {
+          delete retryPayload[columnToRemove];
+          attempts++;
+        } else {
+          // If error is not about a missing column, stop and throw
+          throw error;
+        }
+      }
+
+      if (!success) throw new Error('Max retry attempts reached for appointments.');
 
       setShowAdd(false);
       setForm({ doctor_name: '', appointment_type: '', appointment_date: '', notes: '', location: '', status: 'pending' });
@@ -83,8 +127,17 @@ export default function AppointmentsPage({ appointmentData }) {
   };
 
   const handleCancel = async (id) => {
-    await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', id);
-    await fetchAppointments();
+    try {
+      setSaving(true);
+      const { error } = await supabase.from('appointments').delete().eq('id', id);
+      if (error) throw error;
+      await fetchAppointments();
+    } catch (err) {
+      console.error('Cancel appointment error:', err);
+      alert('Could not remove appointment. This might be due to a database permission (RLS) issue.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFacilitySelect = (facility) => {
