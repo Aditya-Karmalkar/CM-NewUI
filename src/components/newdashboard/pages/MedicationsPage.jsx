@@ -77,49 +77,23 @@ export default function MedicationsPage() {
       // Ensure start_date is null if empty string to avoid "invalid input syntax for type date"
       const formattedDate = form.start_date || null;
 
-      let retryPayload = {
+      const payload = {
         name: form.name,
         dosage: form.dosage,
         frequency: form.frequency,
         instructions: form.instructions,
-        start_date: formattedDate,
+        notes: `Start Date: ${formattedDate} | Time of Day: ${form.time_of_day}`,
         user_id: session.user.id,
         is_active: true,
-        time_of_day: form.time_of_day
+        is_taken: false,
+        source: 'self'
       };
 
-      let success = false;
-      let attempts = 0;
-      const maxAttempts = 5;
+      const { error } = await supabase.from('medications').insert([payload]);
 
-      while (!success && attempts < maxAttempts) {
-        const { error } = await supabase.from('medications').insert([retryPayload]);
-
-        if (!error) {
-          success = true;
-          break;
-        }
-
-        console.warn(`⚠️ [Medications] Attempt ${attempts + 1} failed:`, error.message);
-
-        // Identify the problematic column
-        let columnToRemove = null;
-        if (error.message?.includes('is_active')) {
-          columnToRemove = 'is_active';
-        } else if (error.message?.includes('time_of_day')) {
-          columnToRemove = 'time_of_day';
-        }
-
-        if (columnToRemove) {
-          delete retryPayload[columnToRemove];
-          attempts++;
-        } else {
-          // If error is not about a missing column, stop and throw
-          throw error;
-        }
+      if (error) {
+        throw error;
       }
-
-      if (!success) throw new Error('Max retry attempts reached for medications.');
 
       setShowAdd(false);
       setForm({ name: '', dosage: '', frequency: 'daily', time_of_day: 'morning', instructions: '', start_date: '' });

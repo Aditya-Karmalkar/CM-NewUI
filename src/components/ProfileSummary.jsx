@@ -645,24 +645,33 @@ const ProfileSummary = () => {
             .eq("id", user.id)
             .single();
 
-          if (error) {
+          const { data: settings } = await supabase
+            .from("user_settings")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
+
+          if (error && error.code !== 'PGRST116') {
             console.error("Error loading user data:", error);
           } else if (data) {
             setFormData({
               fullName: data.full_name || "",
-              displayName: data.display_name || "",
+              displayName: settings?.display_name || "",
               dateOfBirth: data.date_of_birth || "",
               gender: data.gender || "",
               email: data.email || "",
-              emailVerified: data.email_verified || false,
-              phoneNumber: data.phone_number || "",
-              location: data.location || "",
-              language: data.language || "en",
-              timezone: data.timezone || "UTC",
-              receiveEmails: data.receive_emails ?? true,
-              darkMode: data.dark_mode ?? false,
-              shareData: data.share_data ?? true,
+              emailVerified: false,
+              phoneNumber: data.phone || "",
+              location: settings?.location || "",
+              language: settings?.language || "en",
+              timezone: settings?.timezone || "UTC",
+              receiveEmails: settings?.receive_emails ?? true,
+              darkMode: settings?.dark_mode ?? false,
+              shareData: settings?.share_data ?? true,
             });
+            if (data.avatar_url) {
+              setProfileImage(data.avatar_url);
+            }
           }
         }
       } catch (error) {
@@ -673,28 +682,7 @@ const ProfileSummary = () => {
     loadUserData();
   }, []);
 
-  const handleSave = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    try {
-      setIsSaving(true);
-      await supabase
-        .from("users")
-        .upsert({
-          id: user.id,
-          ...formData,
-          updated_at: new Date().toISOString(),
-        });
-      addToast("Profile updated successfully!", "success");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      addToast("Error updating profile. Please try again.", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
+  // Removed duplicate handleSave that directly upserts formData to users table
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
@@ -704,28 +692,39 @@ const ProfileSummary = () => {
       if (!user) throw new Error("No user is signed in");
 
       // Update user profile in Supabase
-      const profileData = {
+      const userPayload = {
         full_name: formData.fullName,
-        display_name: formData.displayName,
         date_of_birth: formData.dateOfBirth,
         gender: formData.gender,
-        phone_number: formData.phoneNumber,
+        phone: formData.phoneNumber,
+        avatar_url: profileImage,
+        updated_at: new Date().toISOString(),
+      };
+
+      const settingsPayload = {
+        display_name: formData.displayName,
         location: formData.location,
         language: formData.language,
         timezone: formData.timezone,
         receive_emails: formData.receiveEmails,
         dark_mode: formData.darkMode,
         share_data: formData.shareData,
-        photo_url: profileImage,
-        updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
       const { error: updateError } = await supabase
         .from('users')
-        .update(profileData)
+        .update(userPayload)
         .eq('id', user.id);
 
       if (updateError) throw updateError;
+
+      const { data: existingSettings } = await supabase.from('user_settings').select('id').eq('user_id', user.id).single();
+      if (existingSettings?.id) {
+        await supabase.from('user_settings').update(settingsPayload).eq('user_id', user.id);
+      } else {
+        await supabase.from('user_settings').insert({ ...settingsPayload, user_id: user.id });
+      }
 
       // Show success notification
       addToast("Profile updated successfully!", "success");

@@ -29,13 +29,22 @@ export default function ProfilePage({ onSignOut }) {
     const unsub = auth.onAuthStateChanged(async (u) => {
       if (u) {
         setUser(u);
-        // Fetch from supabase users table
+        // Fetch from supabase users and user_settings tables
         const { data:{ session } } = await supabase.auth.getSession();
         if (session) {
           const { data } = await supabase.from('users').select('*').eq('id', session.user.id).single();
+          const { data: settings } = await supabase.from('user_settings').select('*').eq('user_id', session.user.id).single();
+          
           if (data) {
             setSupaUser(data);
-            setForm({ full_name:data.full_name||u.displayName||'', phone:data.phone||'', date_of_birth:data.date_of_birth||'', gender:data.gender||'', address:data.address||'', occupation:data.occupation||'' });
+            setForm({ 
+              full_name: data.full_name || u.displayName || '', 
+              phone: data.phone || '', 
+              date_of_birth: data.date_of_birth || '', 
+              gender: data.gender || '', 
+              address: settings?.address || '', 
+              occupation: settings?.occupation || '' 
+            });
           } else {
             setForm(f=>({ ...f, full_name: u.displayName||'' }));
           }
@@ -49,11 +58,32 @@ export default function ProfilePage({ onSignOut }) {
   const handleSave = async () => {
     setSaving(true);
     const { data:{ session } } = await supabase.auth.getSession();
-    const payload = { ...form, updated_at: new Date().toISOString() };
+    
+    const userPayload = { 
+      full_name: form.full_name,
+      phone: form.phone,
+      date_of_birth: form.date_of_birth,
+      gender: form.gender,
+      updated_at: new Date().toISOString() 
+    };
+    
+    const settingsPayload = {
+      address: form.address,
+      occupation: form.occupation,
+      updated_at: new Date().toISOString()
+    };
+    
     if (supaUser?.id) {
-      await supabase.from('users').update(payload).eq('id', session.user.id);
+      await supabase.from('users').update(userPayload).eq('id', session.user.id);
     } else {
-      await supabase.from('users').insert({ ...payload, id: session.user.id, email: user?.email });
+      await supabase.from('users').insert({ ...userPayload, id: session.user.id, email: user?.email });
+    }
+    
+    const { data: existingSettings } = await supabase.from('user_settings').select('id').eq('user_id', session.user.id).single();
+    if (existingSettings?.id) {
+      await supabase.from('user_settings').update(settingsPayload).eq('user_id', session.user.id);
+    } else {
+      await supabase.from('user_settings').insert({ ...settingsPayload, user_id: session.user.id });
     }
     // Update Firebase display name
     if (auth.currentUser && form.full_name) {

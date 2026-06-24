@@ -56,8 +56,16 @@ export default function HealthMetricsPage() {
       if (data && data.length > 0) {
         console.log('DEBUG: First metric object structure:', data[0]);
         
+        // Map data to flatten JSONB value for blood pressure
+        const mappedData = data.map(row => {
+          if ((row.type === 'blood_pressure' || row.metric_type === 'blood_pressure') && row.value && typeof row.value === 'object') {
+            return { ...row, systolic: row.value.systolic, diastolic: row.value.diastolic };
+          }
+          return row;
+        });
+        
         // Use a flexible filter that checks both 'metric_type' and 'type' just in case
-        const getM = (t) => data.filter(m => (m.metric_type === t || m.type === t));
+        const getM = (t) => mappedData.filter(m => (m.metric_type === t || m.type === t));
         
         setMetrics({
           blood_pressure: getM('blood_pressure'),
@@ -87,15 +95,16 @@ export default function HealthMetricsPage() {
       if (!session) return;
 
       const payload = { 
-        metric_type: form.metric_type, 
+        type: form.metric_type, 
         user_id: session.user.id, 
         notes: form.notes || null
       };
 
       if (form.metric_type === 'blood_pressure') {
-        payload.systolic = parseInt(form.systolic, 10);
-        payload.diastolic = parseInt(form.diastolic, 10);
-        payload.value = parseInt(form.systolic, 10);
+        payload.value = {
+          systolic: parseInt(form.systolic, 10),
+          diastolic: parseInt(form.diastolic, 10)
+        };
       } else {
         payload.value = parseFloat(form.value);
       }
@@ -103,13 +112,7 @@ export default function HealthMetricsPage() {
       console.log('Inserting Metric Payload:', payload);
       const { error } = await supabase.from('health_metrics').insert([payload]);
       
-      if (error && error.message.includes("metric_type")) {
-        console.warn("Retrying with 'type' column instead of 'metric_type'");
-        const altPayload = { ...payload, type: payload.metric_type };
-        delete altPayload.metric_type;
-        const { error: altError } = await supabase.from('health_metrics').insert([altPayload]);
-        if (altError) throw altError;
-      } else if (error) {
+      if (error) {
         throw error;
       }
 

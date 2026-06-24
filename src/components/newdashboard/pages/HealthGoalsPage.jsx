@@ -56,54 +56,23 @@ export default function HealthGoalsPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      let retryPayload = {
+      const payload = {
         title: form.title,
         description: form.description,
         category: form.category,
         unit: form.unit,
         target_value: Number(form.target_value),
         current_value: Number(form.current_value) || 0,
-        deadline: form.deadline || null,
+        target_date: form.deadline || null,
         user_id: session.user.id,
-        is_active: true
+        is_completed: false
       };
 
-      let success = false;
-      let attempts = 0;
-      const maxAttempts = 5;
+      const { error } = await supabase.from('health_goals').insert([payload]);
 
-      while (!success && attempts < maxAttempts) {
-        const { error } = await supabase.from('health_goals').insert([retryPayload]);
-        
-        if (!error) {
-          success = true;
-          break;
-        }
-
-        console.warn(`⚠️ [HealthGoals] Attempt ${attempts + 1} failed:`, error.message);
-        
-        // Identify the problematic column
-        let columnToRemove = null;
-        if (error.message?.includes('is_active')) columnToRemove = 'is_active';
-        else if (error.message?.includes('unit')) columnToRemove = 'unit';
-        else if (error.message?.includes('deadline')) {
-          columnToRemove = 'deadline';
-          // Move info to description if stripping
-          if (retryPayload.deadline) {
-            retryPayload.description = `${retryPayload.description || ''} (Target Date: ${new Date(retryPayload.deadline).toLocaleDateString()})`.trim();
-          }
-        }
-        
-        if (columnToRemove) {
-          delete retryPayload[columnToRemove];
-          attempts++;
-        } else {
-          // If error is not about a missing column, stop and throw
-          throw error;
-        }
+      if (error) {
+        throw error;
       }
-
-      if (!success) throw new Error('Max retry attempts reached for health goals.');
 
       setShowAdd(false);
       setForm({ title: '', description: '', category: 'fitness', target_value: '', current_value: '', unit: '', deadline: '' });

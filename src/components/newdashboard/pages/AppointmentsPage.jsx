@@ -65,55 +65,23 @@ export default function AppointmentsPage({ appointmentData }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      let retryPayload = {
-        title: form.appointment_type, // Map appointment_type to title to satisfy not-null constraint
-        doctor_name: form.doctor_name,
+      const payload = {
+        title: form.appointment_type,
+        provider_name: form.doctor_name,
         appointment_type: form.appointment_type,
         appointment_date: form.appointment_date,
         notes: form.notes,
         location: form.location,
         status: form.status,
         user_id: session.user.id,
-        created_at: new Date().toISOString()
+        is_completed: false
       };
 
-      let success = false;
-      let attempts = 0;
-      const maxAttempts = 5;
+      const { error } = await supabase.from('appointments').insert([payload]);
 
-      while (!success && attempts < maxAttempts) {
-        const { error } = await supabase.from('appointments').insert([retryPayload]);
-
-        if (!error) {
-          success = true;
-          break;
-        }
-
-        console.warn(`⚠️ [Appointments] Attempt ${attempts + 1} failed:`, error.message);
-
-        // Identify the problematic column
-        let columnToRemove = null;
-        if (error.message?.includes('doctor_name')) {
-          columnToRemove = 'doctor_name';
-          retryPayload.notes = `Doctor: ${retryPayload.doctor_name}\n${retryPayload.notes || ''}`;
-        } else if (error.message?.includes('status')) {
-          columnToRemove = 'status';
-        } else if (error.message?.includes('title')) {
-          columnToRemove = 'title';
-        } else if (error.message?.includes('appointment_type')) {
-          columnToRemove = 'appointment_type';
-        }
-
-        if (columnToRemove) {
-          delete retryPayload[columnToRemove];
-          attempts++;
-        } else {
-          // If error is not about a missing column, stop and throw
-          throw error;
-        }
+      if (error) {
+        throw error;
       }
-
-      if (!success) throw new Error('Max retry attempts reached for appointments.');
 
       setShowAdd(false);
       setForm({ doctor_name: '', appointment_type: '', appointment_date: '', notes: '', location: '', status: 'pending' });
