@@ -250,9 +250,11 @@ export default function HealthMetricsPage() {
                       <DialogClose asChild>
                         <Button variant="outline">Cancel</Button>
                       </DialogClose>
-                      <Button variant="destructive" onClick={() => handleDelete(m.id)}>
-                        Delete Permanently
-                      </Button>
+                      <DialogClose asChild>
+                        <Button variant="destructive" onClick={() => handleDelete(m.id)}>
+                          Delete Permanently
+                        </Button>
+                      </DialogClose>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>

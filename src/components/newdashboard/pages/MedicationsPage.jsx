@@ -199,9 +199,11 @@ export default function MedicationsPage() {
                       <DialogClose asChild>
                         <Button variant="outline">Cancel</Button>
                       </DialogClose>
-                      <Button variant="destructive" onClick={() => handleDelete(med.id)}>
-                        Stop Medication
-                      </Button>
+                      <DialogClose asChild>
+                        <Button variant="destructive" onClick={() => handleDelete(med.id)}>
+                          Stop Medication
+                        </Button>
+                      </DialogClose>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
