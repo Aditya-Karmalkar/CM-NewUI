@@ -31,7 +31,7 @@ const Signup = () => {
           full_name: formData.fullName,
           email: formData.email,
           phone: formData.phone,
-          user_type: formData.userType,
+          role: formData.userType,
           auth_provider: 'email'
         }
       );

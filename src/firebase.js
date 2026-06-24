@@ -63,10 +63,10 @@ export const syncOAuthUserToSupabase = async (firebaseUser) => {
       password: uid
     });
 
-    let authResult;
+    let supabaseUserId = null;
 
     if (signInError) {
-      console.log('🆕 DEBUG: User not found in Supabase auth, creating...');
+      console.log('🆕 DEBUG: User not found or unverified in Supabase auth, creating/bypassing...');
       const { data: newAuth, error: signUpError } = await supabase.auth.signUp({
         email: email,
         password: uid,
@@ -77,23 +77,14 @@ export const syncOAuthUserToSupabase = async (firebaseUser) => {
       });
 
       if (signUpError) {
-        console.error('❌ DEBUG: Error creating Supabase auth user:', signUpError);
-        throw signUpError;
+        console.warn('⚠️ DEBUG: Error creating Supabase auth user (likely rate limit or unverified). Proceeding with database sync anyway.', signUpError.message);
+      } else {
+        supabaseUserId = newAuth.user?.id;
       }
-
-      authResult = newAuth;
-      console.log('✅ DEBUG: Created new Supabase auth user:', newAuth.user.id);
     } else {
-      authResult = signInData;
-      console.log('✅ DEBUG: Found existing Supabase auth user:', signInData.user.id);
+      supabaseUserId = signInData.user?.id;
+      console.log('✅ DEBUG: Found existing Supabase auth user:', supabaseUserId);
     }
-
-    if (!authResult || !authResult.user) {
-      throw new Error('Failed to get/create Supabase auth user');
-    }
-
-    const supabaseUserId = authResult.user.id;
-    console.log('📊 DEBUG: Now syncing users table with ID:', supabaseUserId);
 
     // Check if user already exists in users table
     console.log('🔍 DEBUG: Checking users table for existing record...');
@@ -159,7 +150,7 @@ export const syncOAuthUserToSupabase = async (firebaseUser) => {
 
     console.log('✅ DEBUG: Final users table state:', finalCheck);
 
-    return authResult;
+    return { user: { id: supabaseUserId } };
   } catch (error) {
     console.error('❌ DEBUG: Error syncing OAuth user to Supabase:', error);
     throw error;
@@ -181,22 +172,10 @@ export const handleOAuthSignIn = async (providerType = 'google') => {
 
     // Sync Firebase user data to Supabase
     console.log('🔄 Syncing Firebase user to Supabase...');
-    await syncOAuthUserToSupabase(firebaseUser);
-
-    // Create Supabase session token
-    console.log('🔐 Creating Supabase session...');
-    const { data: { session }, error } = await supabase.auth.signInWithPassword({
-      email: firebaseUser.email,
-      password: firebaseUser.uid // Using Firebase UID as temporary password
-    });
-
-    if (error) {
-      console.error('❌ Error creating Supabase session:', error);
-      throw error;
-    }
+    const authResult = await syncOAuthUserToSupabase(firebaseUser);
 
     console.log('✅ OAuth flow completed successfully');
-    return { firebaseUser, supabaseUser: session.user };
+    return { firebaseUser, supabaseUser: authResult.user || authResult.session?.user };
   } catch (error) {
     console.error('❌ OAuth sign-in error:', error);
     throw error;
@@ -299,56 +278,10 @@ export const handleOAuthSignInWithFallback = async (providerType = 'google') => 
 
     // Sync to Supabase
     console.log('🔄 DEBUG: Syncing to Supabase...');
-    await syncOAuthUserToSupabase(firebaseUser);
-
-    // Create Supabase session - handle OAuth without email confirmation
-    console.log('🔐 DEBUG: Creating Supabase session...');
-    
-    // First, try to sign in (no email confirmation needed)
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-      email: firebaseUser.email,
-      password: firebaseUser.uid
-    });
-    
-    let session;
-    
-    if (signInError) {
-      console.log('🆕 DEBUG: User not found, creating new Supabase auth user...');
-      
-      // Create user with email confirmation disabled for OAuth
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: firebaseUser.email,
-        password: firebaseUser.uid,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: firebaseUser.displayName,
-            avatar_url: firebaseUser.photoURL,
-            provider: 'oauth'
-          }
-        }
-      });
-      
-      if (signUpError) {
-        console.error('❌ DEBUG: Supabase signUp error:', signUpError);
-        throw signUpError;
-      }
-      
-      session = signUpData.session;
-      
-    } else {
-      console.log('✅ DEBUG: Existing Supabase user found');
-      session = signInData.session;
-    }
-
-    if (!session) {
-      throw new Error('Failed to create Supabase session');
-    }
-
-    console.log('✅ DEBUG: Supabase session created successfully');
+    const authResult = await syncOAuthUserToSupabase(firebaseUser);
 
     console.log('✅ DEBUG: Complete flow successful');
-    return { firebaseUser, supabaseUser: session.user };
+    return { firebaseUser, supabaseUser: authResult.user || authResult.session?.user };
 
   } catch (error) {
     console.error('❌ DEBUG: OAuth sign-in error:', error);

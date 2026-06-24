@@ -33,7 +33,7 @@ const Signin = () => {
       if (error) throw error;
       
       // Navigate based on user type
-      const userType = data.user?.user_metadata?.user_type;
+      const userType = data.user?.user_metadata?.role;
       if (userType === 'Doctor') {
         navigate("/health-dashboard"); // RoleBasedDashboard handles the view
       } else {

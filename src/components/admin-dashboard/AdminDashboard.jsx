@@ -112,7 +112,7 @@ export default function AdminDashboard() {
     const checkAdmin = async (u) => {
       const { data, error } = await supabase
         .from('users')
-        .select('user_type')
+        .select('role')
         .eq('id', u.id)
         .single();
       

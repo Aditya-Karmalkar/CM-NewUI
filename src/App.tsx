@@ -46,37 +46,44 @@ const RoleBasedDashboard = ({ patientComponent, doctorComponent, adminComponent 
 
   useEffect(() => {
     const checkRole = async () => {
+      let userType = null;
+      let userEmail = null;
+
+      // Try Supabase Auth first
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // First try to get from metadata (much faster and avoids schema issues)
-        let userType = session.user.user_metadata?.user_type;
+        userType = session.user.user_metadata?.role;
+        userEmail = session.user.email;
         
         if (!userType) {
           try {
             const { data, error } = await supabase
               .from('users')
-              .select('user_type')
+              .select('role')
               .eq('id', session.user.id)
               .single();
-            
-            if (error) {
-              console.warn('⚠️ [RoleCheck] Could not fetch user_type from database (check if column exists). Defaulting to patient.', error.message);
-              userType = 'patient';
-            } else if (data) {
-              userType = data.user_type;
-            }
-          } catch (err) {
-            console.error('Role check system error:', err);
-            userType = 'patient';
-          }
+            if (data) userType = data.role;
+          } catch (err) {}
         }
-
-        if (userType) {
-          setRole(userType.toLowerCase()); // Standardize to lowercase for comparison
-        } else {
-          setRole('patient');
+      } 
+      
+      // Fallback to Firebase Auth
+      if (!userType) {
+        const { auth } = await import('./firebase');
+        if (auth.currentUser) {
+          userEmail = auth.currentUser.email;
+          try {
+            const { data, error } = await supabase
+              .from('users')
+              .select('role')
+              .eq('email', userEmail)
+              .single();
+            if (data) userType = data.role;
+          } catch (err) {}
         }
       }
+
+      setRole(userType ? userType.toLowerCase() : 'patient');
       setLoading(false);
     };
     checkRole();

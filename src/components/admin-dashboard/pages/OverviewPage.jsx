@@ -31,7 +31,7 @@ export default function OverviewPage({ onNavigate }) {
       try {
         const [usersRes, doctorsRes] = await Promise.all([
           supabase.from('users').select('*', { count: 'exact', head: true }),
-          supabase.from('users').select('*', { count: 'exact', head: true }).eq('user_type', 'doctor')
+          supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'doctor')
         ]);
 
         setStats({

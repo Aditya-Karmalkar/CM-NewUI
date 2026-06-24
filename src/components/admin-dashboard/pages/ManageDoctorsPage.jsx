@@ -45,7 +45,7 @@ export default function ManageDoctorsPage() {
         const { data, error } = await supabase
           .from('users')
           .select('*')
-          .eq('user_type', 'doctor');
+          .eq('role', 'doctor');
         
         if (error) throw error;
         
