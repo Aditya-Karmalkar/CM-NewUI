@@ -69,12 +69,11 @@ export const createUserRecord = async (user, metadata = {}) => {
           id: user.id,
           email: user.email,
           full_name: user.user_metadata?.full_name || user.user_metadata?.displayName || metadata.full_name || '',
-          phone: user.user_metadata?.phone || null,
+          phone: user.user_metadata?.phone || metadata.phone || null,
           avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.photoURL || null,
           role: userType,
           created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          ...metadata
+          updated_at: new Date().toISOString()
         });
 
     if (error) {
