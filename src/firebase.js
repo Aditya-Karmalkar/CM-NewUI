@@ -91,7 +91,7 @@ export const syncOAuthUserToSupabase = async (firebaseUser) => {
     const { data: existingUser, error: checkError } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email);
+      .eq('id', supabaseUserId);
 
     console.log('DEBUG: Users table check result:', { existingUser, checkError });
 
@@ -112,7 +112,7 @@ export const syncOAuthUserToSupabase = async (firebaseUser) => {
           avatar_url: photoURL,
           updated_at: new Date().toISOString()
         })
-        .eq('email', email);
+        .eq('id', supabaseUserId);
 
       if (updateError) {
         console.error('❌ DEBUG: Error updating user:', updateError);
