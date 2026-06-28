@@ -61,6 +61,10 @@ export default function HealthMetricsPage() {
           if ((row.type === 'blood_pressure' || row.metric_type === 'blood_pressure') && row.value && typeof row.value === 'object') {
             return { ...row, systolic: row.value.systolic, diastolic: row.value.diastolic };
           }
+          // Flatten 'main' for other metrics if it's stored as JSON (e.g., from mobile app)
+          if (row.value && typeof row.value === 'object') {
+            return { ...row, value: row.value.main !== undefined ? row.value.main : null };
+          }
           return row;
         });
         
@@ -106,7 +110,8 @@ export default function HealthMetricsPage() {
           diastolic: parseInt(form.diastolic, 10)
         };
       } else {
-        payload.value = parseFloat(form.value);
+        // Mobile app expects value to be a map with 'main' key
+        payload.value = { main: parseFloat(form.value) };
       }
 
       console.log('Inserting Metric Payload:', payload);
