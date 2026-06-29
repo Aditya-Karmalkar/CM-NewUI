@@ -415,8 +415,8 @@ const DashboardHome = ({ user, healthMetrics, medications, upcomingAppointments,
       {/* Vitals */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0,1fr))', gap: 12 }}>
         <VitalCard label="Blood Pressure"
-          value={healthMetrics?.bloodPressure?.length ? `${healthMetrics.bloodPressure[0].value}` : (isDemo ? '138' : '--')}
-          unit={healthMetrics?.bloodPressure?.length || isDemo ? '/90' : ''} pct={78} barColor={ERR}
+          value={healthMetrics?.bloodPressure?.length ? (healthMetrics.bloodPressure[0].systolic || '--') : (isDemo ? '138' : '--')}
+          unit={healthMetrics?.bloodPressure?.length ? (healthMetrics.bloodPressure[0].diastolic ? `/${healthMetrics.bloodPressure[0].diastolic}` : '') : (isDemo ? '/90' : '')} pct={78} barColor={ERR}
           iconBg={ERR_BG} iconColor={ERR} status={isDemo ? "HIGH" : "--"} statusType={isDemo ? "err" : "ok"} />
         <VitalCard label="Heart Rate"
           value={getLatest(healthMetrics?.heartRate) || (isDemo ? '72' : '--')}
@@ -610,12 +610,22 @@ const CuraMindDashboard = () => {
         ]);
 
         if (metricsData) {
+          const mappedMetrics = metricsData.map(row => {
+            if (row.metric_type === 'blood_pressure' && row.value && typeof row.value === 'object') {
+              return { ...row, systolic: row.value.systolic, diastolic: row.value.diastolic, value: null };
+            }
+            if (row.value && typeof row.value === 'object') {
+              return { ...row, value: row.value.main !== undefined ? row.value.main : null };
+            }
+            return row;
+          });
+
           setHealthMetrics({
-            bloodPressure: metricsData.filter(m => m.metric_type === 'blood_pressure'),
-            heartRate: metricsData.filter(m => m.metric_type === 'heart_rate'),
-            bloodGlucose: metricsData.filter(m => m.metric_type === 'blood_glucose'),
-            weight: metricsData.filter(m => m.metric_type === 'weight'),
-            sleep: metricsData.filter(m => m.metric_type === 'sleep'),
+            bloodPressure: mappedMetrics.filter(m => m.metric_type === 'blood_pressure'),
+            heartRate: mappedMetrics.filter(m => m.metric_type === 'heart_rate'),
+            bloodGlucose: mappedMetrics.filter(m => m.metric_type === 'blood_glucose'),
+            weight: mappedMetrics.filter(m => m.metric_type === 'weight'),
+            sleep: mappedMetrics.filter(m => m.metric_type === 'sleep'),
           });
         }
         if (medsData) setMedications(medsData);

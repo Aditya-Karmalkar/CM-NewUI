@@ -62,27 +62,30 @@ const HealthTrends = ({ darkMode }) => {
             ...metric.metadata
           };
 
-          switch (metric.metric_type) {
+          switch (metric.metric_type || metric.type) {
             case 'blood_pressure':
               organizedData.bloodPressure.push({
                 ...metricData,
-                systolic: metric.metadata?.systolic || 0,
-                diastolic: metric.metadata?.diastolic || 0
+                systolic: (metric.value && metric.value.systolic) || metric.metadata?.systolic || 0,
+                diastolic: (metric.value && metric.value.diastolic) || metric.metadata?.diastolic || 0,
+                value: null // Prevent rendering object
               });
               break;
             case 'heart_rate':
-              organizedData.heartRate.push(metricData);
+              organizedData.heartRate.push({ ...metricData, value: typeof metric.value === 'object' ? metric.value?.main : metric.value });
               break;
             case 'blood_glucose':
-              organizedData.bloodGlucose.push(metricData);
+              organizedData.bloodGlucose.push({ ...metricData, value: typeof metric.value === 'object' ? metric.value?.main : metric.value });
               break;
             case 'weight':
-              organizedData.weight.push(metricData);
+              organizedData.weight.push({ ...metricData, value: typeof metric.value === 'object' ? metric.value?.main : metric.value });
               break;
             case 'sleep':
+              const hoursValue = typeof metric.value === 'object' ? metric.value?.main : metric.value;
               organizedData.sleep.push({
                 ...metricData,
-                hours: metric.value || 0,
+                hours: hoursValue || 0,
+                value: hoursValue,
                 quality: metric.metadata?.quality || 0
               });
               break;

@@ -59,7 +59,7 @@ export default function HealthMetricsPage() {
         // Map data to flatten JSONB value for blood pressure
         const mappedData = data.map(row => {
           if ((row.type === 'blood_pressure' || row.metric_type === 'blood_pressure') && row.value && typeof row.value === 'object') {
-            return { ...row, systolic: row.value.systolic, diastolic: row.value.diastolic };
+            return { ...row, systolic: row.value.systolic, diastolic: row.value.diastolic, value: null };
           }
           // Flatten 'main' for other metrics if it's stored as JSON (e.g., from mobile app)
           if (row.value && typeof row.value === 'object') {
